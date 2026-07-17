@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin - EPHEMERAL</title>
+  <link rel="icon" type="image/png" href="images/Logo.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
+      authDomain: "ephemeral-93275.firebaseapp.com",
+      projectId: "ephemeral-93275",
+      storageBucket: "ephemeral-93275.firebasestorage.app",
+      messagingSenderId: "834738629296",
+      appId: "1:834738629296:web:4dc2ad46ed8a2142522975"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+</head>
+
+<body class="bg-black text-white min-h-screen">
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center px-4">
+    <div class="bg-zinc-900 rounded-2xl p-8 w-full max-w-sm">
+      <h1 class="text-2xl font-bold mb-6 text-center">Panel Admin</h1>
+      <input id="loginEmail" type="email" placeholder="Correo"
+             class="w-full mb-3 px-4 py-2 rounded-lg text-black focus:outline-none">
+      <input id="loginPassword" type="password" placeholder="Contraseña"
+             class="w-full mb-4 px-4 py-2 rounded-lg text-black focus:outline-none">
+      <button onclick="iniciarSesion()" class="w-full bg-green-500 hover:bg-green-600 transition py-2 rounded-lg font-semibold">
+        Iniciar sesión
+      </button>
+      <p id="loginError" class="text-red-500 text-sm mt-3 text-center hidden">Correo o contraseña incorrectos</p>
+    </div>
+  </div>
+
+  <!-- PANEL ADMIN -->
+  <div id="panelAdmin" class="hidden">
+
+    <header class="bg-white text-black py-4 px-6 flex justify-between items-center shadow-md">
+      <h1 class="text-xl font-bold">Panel Admin - EPHEMERAL</h1>
+      <button onclick="cerrarSesion()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm">
+        Cerrar sesión
+      </button>
+    </header>
+
+    <div class="max-w-6xl mx-auto p-6">
+
+      <!-- FORMULARIO AGREGAR/EDITAR -->
+      <div class="bg-zinc-900 rounded-2xl p-6 mb-8">
+        <h2 id="formTitulo" class="text-lg font-semibold mb-4">Agregar producto nuevo</h2>
+
+        <input type="hidden" id="productoId">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <input id="fNombre" type="text" placeholder="Nombre del producto" class="px-4 py-2 rounded-lg text-black">
+          <input id="fCategoria" type="text" placeholder="Categoría (ej: sueteres)" class="px-4 py-2 rounded-lg text-black">
+          <input id="fPrecio" type="number" placeholder="Precio MXN" class="px-4 py-2 rounded-lg text-black">
+          <input id="fStock" type="number" placeholder="Stock disponible" class="px-4 py-2 rounded-lg text-black">
+        </div>
+
+        <textarea id="fDescripcion" placeholder="Descripción" class="w-full px-4 py-2 rounded-lg text-black mb-4" rows="2"></textarea>
+
+        <label class="block text-sm text-gray-400 mb-2">Imágenes (URLs separadas por coma, ej: de Cloudinary)</label>
+        <textarea id="fImagenes" placeholder="images/producto1.jpg, images/producto1.1.jpg" class="w-full px-4 py-2 rounded-lg text-black mb-4" rows="2"></textarea>
+
+        <div class="flex gap-3">
+          <button onclick="guardarProducto()" class="bg-green-500 hover:bg-green-600 transition px-6 py-2 rounded-lg font-semibold">
+            Guardar
+          </button>
+          <button onclick="limpiarFormulario()" class="bg-zinc-700 hover:bg-zinc-600 transition px-6 py-2 rounded-lg">
+            Cancelar
+          </button>
+        </div>
+      </div>
+
+      <!-- LISTA DE PRODUCTOS -->
+      <h2 class="text-lg font-semibold mb-4">Productos existentes</h2>
+      <div id="listaProductos" class="space-y-3"></div>
+
+    </div>
+  </div>
+
+  <script>
+    // ===== LOGIN =====
+    function iniciarSesion() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(() => {
+          document.getElementById('loginError').classList.remove('hidden');
+        });
+    }
+
+    function cerrarSesion() {
+      auth.signOut();
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('panelAdmin').classList.remove('hidden');
+        cargarListaProductos();
+      } else {
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('panelAdmin').classList.add('hidden');
+      }
+    });
+
+    // ===== CRUD PRODUCTOS =====
+    async function guardarProducto() {
+      const id = document.getElementById('productoId').value;
+      const producto = {
+        nombre: document.getElementById('fNombre').value,
+        categoria: document.getElementById('fCategoria').value.toLowerCase(),
+        precio: Number(document.getElementById('fPrecio').value),
+        stock: Number(document.getElementById('fStock').value),
+        descripcion: document.getElementById('fDescripcion').value,
+        imagenes: document.getElementById('fImagenes').value.split(',').map(s => s.trim())
+      };
+
+      if (!producto.nombre || !producto.categoria || !producto.precio) {
+        alert('Llena al menos nombre, categoría y precio');
+        return;
+      }
+
+      try {
+        if (id) {
+          await db.collection('productos').doc(id).update(producto);
+        } else {
+          await db.collection('productos').add(producto);
+        }
+        limpiarFormulario();
+        cargarListaProductos();
+      } catch (error) {
+        alert('Error al guardar: ' + error.message);
+      }
+    }
+
+    async function cargarListaProductos() {
+      const snapshot = await db.collection('productos').get();
+      const contenedor = document.getElementById('listaProductos');
+      contenedor.innerHTML = '';
+
+      snapshot.forEach(doc => {
+        const p = doc.data();
+        contenedor.innerHTML += `
+          <div class="bg-zinc-900 rounded-xl p-4 flex items-center gap-4">
+            <img src="${p.imagenes[0]}" class="w-16 h-16 object-cover rounded-lg">
+            <div class="flex-1">
+              <p class="font-semibold">${p.nombre}</p>
+              <p class="text-sm text-gray-400">$${p.precio} MXN · Stock: ${p.stock} · ${p.categoria}</p>
+            </div>
+            <button onclick='editarProducto("${doc.id}", ${JSON.stringify(p)})' class="bg-blue-500 hover:bg-blue-600 transition px-3 py-1 rounded-lg text-sm">
+              Editar
+            </button>
+            <button onclick="eliminarProducto('${doc.id}')" class="bg-red-500 hover:bg-red-600 transition px-3 py-1 rounded-lg text-sm">
+              Eliminar
+            </button>
+          </div>`;
+      });
+    }
+
+    function editarProducto(id, producto) {
+      document.getElementById('formTitulo').textContent = 'Editar producto';
+      document.getElementById('productoId').value = id;
+      document.getElementById('fNombre').value = producto.nombre;
+      document.getElementById('fCategoria').value = producto.categoria;
+      document.getElementById('fPrecio').value = producto.precio;
+      document.getElementById('fStock').value = producto.stock;
+      document.getElementById('fDescripcion').value = producto.descripcion || '';
+      document.getElementById('fImagenes').value = producto.imagenes.join(', ');
+      window.scrollTo(0, 0);
+    }
+
+    async function eliminarProducto(id) {
+      if (!confirm('¿Seguro que quieres eliminar este producto?')) return;
+      await db.collection('productos').doc(id).delete();
+      cargarListaProductos();
+    }
+
+    function limpiarFormulario() {
+      document.getElementById('formTitulo').textContent = 'Agregar producto nuevo';
+      document.getElementById('productoId').value = '';
+      document.getElementById('fNombre').value = '';
+      document.getElementById('fCategoria').value = '';
+      document.getElementById('fPrecio').value = '';
+      document.getElementById('fStock').value = '';
+      document.getElementById('fDescripcion').value = '';
+      document.getElementById('fImagenes').value = '';
+    }
+  </script>
+
+</body>
+</html>
