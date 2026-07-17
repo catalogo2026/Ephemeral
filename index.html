@@ -41,8 +41,8 @@
 <body class="bg-black text-white min-h-screen flex flex-col">
 
   <!-- HEADER -->
-  <header class="bg-white shadow-md py-4 border-b border-zinc-800 sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto flex items-center justify-between px-4 gap-4">
+<header class="bg-white shadow-md py-4 border-b border-zinc-800 sticky top-0 z-40 md:pl-16">
+      <div class="max-w-7xl mx-auto flex items-center justify-between px-4 gap-4">
 
       <!-- Botón menú móvil -->
       <button id="btnMenuMovil" class="md:hidden text-black text-2xl">☰</button>
@@ -78,10 +78,10 @@
     </div>
   </header>
 
-  <div class="flex flex-1">
-
+<div class="flex flex-1 md:pl-16">
+  
     <!-- SIDEBAR CATEGORÍAS (hover en desktop) -->
-<aside id="sidebar" class="hidden md:flex group w-16 hover:w-56 bg-zinc-900 border-r border-zinc-800 p-4 sidebar-scroll overflow-y-auto overflow-x-hidden transition-all duration-300 flex-col">
+<aside id="sidebar" class="hidden md:flex group fixed top-0 left-0 h-screen w-16 hover:w-56 bg-zinc-900 border-r border-zinc-800 p-4 sidebar-scroll overflow-y-auto overflow-x-hidden transition-all duration-300 flex-col z-50">
   <h2 class="text-sm font-semibold text-gray-400 uppercase mb-4 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
     Categorías
   </h2>
@@ -96,6 +96,8 @@
     </li>
   </ul>
 </aside>
+
+
     <!-- Sidebar móvil (overlay) -->
     <div id="sidebarMovil" class="hidden fixed inset-0 bg-black/70 z-50 md:hidden">
       <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto">
