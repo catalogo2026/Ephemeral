@@ -50,7 +50,8 @@
       <!-- Logo centro (click = inicio) -->
         <div class="flex-1 flex justify-center">
           <img src="images/LogoCompleto.png" alt="Logo EPHEMERAL" class="h-12 object-contain cursor-pointer" onclick="irInicio()">
-      </div>
+ 
+        </div>
 
       <!-- Buscador + Carrito -->
       <div class="flex items-center gap-3">
@@ -59,7 +60,7 @@
                placeholder="Buscar..."
                class="hidden sm:block border border-gray-300 rounded-lg px-3 py-2 text-black text-sm w-32 md:w-56 focus:outline-none focus:ring-2 focus:ring-black"
                oninput="filtrarProductos()">
-
+<a href="admin.html" class="text-black text-xl" title="Panel Admin">⚙️</a>
         <button onclick="toggleCarrito()" class="relative text-black text-2xl">
           🛒
           <span id="contadorCarrito" class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>

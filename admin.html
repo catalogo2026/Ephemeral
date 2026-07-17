@@ -43,14 +43,22 @@
         Iniciar sesión
       </button>
       <p id="loginError" class="text-red-500 text-sm mt-3 text-center hidden">Correo o contraseña incorrectos</p>
+      <a href="index.html" class="block text-center text-xs text-gray-400 mt-4 hover:text-white transition">
+        ← Volver al catálogo
+      </a>
     </div>
   </div>
 
   <!-- PANEL ADMIN -->
   <div id="panelAdmin" class="hidden">
 
-    <header class="bg-white text-black py-4 px-6 flex justify-between items-center shadow-md">
-      <h1 class="text-xl font-bold">Panel Admin - EPHEMERAL</h1>
+    <header class="bg-white text-black py-4 px-6 flex flex-wrap justify-between items-center gap-3 shadow-md">
+      <div class="flex items-center gap-4">
+        <a href="index.html" class="text-sm bg-zinc-200 hover:bg-zinc-300 transition px-3 py-2 rounded-lg whitespace-nowrap">
+          ← Ver catálogo
+        </a>
+        <h1 class="text-lg md:text-xl font-bold">Panel Admin - EPHEMERAL</h1>
+      </div>
       <button onclick="cerrarSesion()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm">
         Cerrar sesión
       </button>
@@ -73,12 +81,12 @@
 
         <textarea id="fDescripcion" placeholder="Descripción" class="w-full px-4 py-2 rounded-lg text-black mb-4" rows="2"></textarea>
 
-<label class="block text-sm text-gray-400 mb-2">Imágenes del producto</label>
-<input type="file" id="fArchivoImagenes" accept="image/*" multiple
-       class="w-full px-4 py-2 rounded-lg bg-zinc-800 text-white mb-2 text-sm">
-<div id="previewImagenes" class="flex gap-2 flex-wrap mb-2"></div>
-<p id="estadoSubida" class="text-xs text-gray-400 mb-4"></p>
-<input type="hidden" id="fImagenes">
+        <label class="block text-sm text-gray-400 mb-2">Imágenes del producto</label>
+        <input type="file" id="fArchivoImagenes" accept="image/*" multiple
+               class="w-full px-4 py-2 rounded-lg bg-zinc-800 text-white mb-2 text-sm">
+        <div id="previewImagenes" class="flex gap-2 flex-wrap mb-2"></div>
+        <p id="estadoSubida" class="text-xs text-gray-400 mb-4"></p>
+        <input type="hidden" id="fImagenes">
 
         <div class="flex gap-3">
           <button onclick="guardarProducto()" class="bg-green-500 hover:bg-green-600 transition px-6 py-2 rounded-lg font-semibold">
@@ -91,13 +99,22 @@
       </div>
 
       <!-- LISTA DE PRODUCTOS -->
-      <h2 class="text-lg font-semibold mb-4">Productos existentes</h2>
-      <div id="listaProductos" class="space-y-3"></div>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <h2 class="text-lg font-semibold">Productos existentes</h2>
+        <input id="buscadorAdmin" type="text" placeholder="Buscar producto..."
+               class="px-4 py-2 rounded-lg text-black text-sm w-full sm:w-64"
+               oninput="filtrarProductosAdmin()">
+      </div>
+      <div id="listaProductos" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
 
     </div>
   </div>
 
   <script>
+    const IMGBB_API_KEY = "efe873ac64539ab66954ea4ad3f8330a";
+    let urlsImagenesSubidas = [];
+    let todosLosProductosAdmin = [];
+
     // ===== LOGIN =====
     function iniciarSesion() {
       const email = document.getElementById('loginEmail').value;
@@ -124,43 +141,41 @@
       }
     });
 
-const IMGBB_API_KEY = "efe873ac64539ab66954ea4ad3f8330a";
-let urlsImagenesSubidas = [];
+    // ===== SUBIDA DE IMÁGENES (ImgBB) =====
+    document.getElementById('fArchivoImagenes').addEventListener('change', async function(e) {
+      const archivos = Array.from(e.target.files);
+      const estado = document.getElementById('estadoSubida');
+      const preview = document.getElementById('previewImagenes');
 
-document.getElementById('fArchivoImagenes').addEventListener('change', async function(e) {
-  const archivos = Array.from(e.target.files);
-  const estado = document.getElementById('estadoSubida');
-  const preview = document.getElementById('previewImagenes');
+      estado.textContent = `Subiendo ${archivos.length} imagen(es)...`;
+      urlsImagenesSubidas = [];
+      preview.innerHTML = '';
 
-  estado.textContent = `Subiendo ${archivos.length} imagen(es)...`;
-  urlsImagenesSubidas = [];
-  preview.innerHTML = '';
+      for (const archivo of archivos) {
+        const formData = new FormData();
+        formData.append('image', archivo);
 
-  for (const archivo of archivos) {
-    const formData = new FormData();
-    formData.append('image', archivo);
+        try {
+          const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
 
-    try {
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        const url = data.data.url;
-        urlsImagenesSubidas.push(url);
-        preview.innerHTML += `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border-2 border-green-500">`;
+          if (data.success) {
+            const url = data.data.url;
+            urlsImagenesSubidas.push(url);
+            preview.innerHTML += `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border-2 border-green-500">`;
+          }
+        } catch (error) {
+          estado.textContent = 'Error al subir alguna imagen';
+          console.error(error);
+        }
       }
-    } catch (error) {
-      estado.textContent = 'Error al subir alguna imagen';
-      console.error(error);
-    }
-  }
 
-  document.getElementById('fImagenes').value = urlsImagenesSubidas.join(',');
-  estado.textContent = `${urlsImagenesSubidas.length} imagen(es) subida(s) correctamente ✓`;
-});
+      document.getElementById('fImagenes').value = urlsImagenesSubidas.join(',');
+      estado.textContent = `${urlsImagenesSubidas.length} imagen(es) subida(s) correctamente ✓`;
+    });
 
     // ===== CRUD PRODUCTOS =====
     async function guardarProducto() {
@@ -171,7 +186,7 @@ document.getElementById('fArchivoImagenes').addEventListener('change', async fun
         precio: Number(document.getElementById('fPrecio').value),
         stock: Number(document.getElementById('fStock').value),
         descripcion: document.getElementById('fDescripcion').value,
-        imagenes: document.getElementById('fImagenes').value.split(',').map(s => s.trim())
+        imagenes: document.getElementById('fImagenes').value.split(',').map(s => s.trim()).filter(Boolean)
       };
 
       if (!producto.nombre || !producto.categoria || !producto.precio) {
@@ -194,26 +209,37 @@ document.getElementById('fArchivoImagenes').addEventListener('change', async fun
 
     async function cargarListaProductos() {
       const snapshot = await db.collection('productos').get();
+      todosLosProductosAdmin = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderizarListaAdmin(todosLosProductosAdmin);
+    }
+
+    function renderizarListaAdmin(productos) {
       const contenedor = document.getElementById('listaProductos');
       contenedor.innerHTML = '';
 
-      snapshot.forEach(doc => {
-        const p = doc.data();
+      productos.forEach(p => {
         contenedor.innerHTML += `
-          <div class="bg-zinc-900 rounded-xl p-4 flex items-center gap-4">
-            <img src="${p.imagenes[0]}" class="w-16 h-16 object-cover rounded-lg">
-            <div class="flex-1">
-              <p class="font-semibold">${p.nombre}</p>
-              <p class="text-sm text-gray-400">$${p.precio} MXN · Stock: ${p.stock} · ${p.categoria}</p>
+          <div class="bg-zinc-900 rounded-xl p-3 flex flex-col">
+            <img src="${p.imagenes[0]}" class="w-full h-32 object-cover rounded-lg mb-2">
+            <p class="font-semibold text-sm truncate">${p.nombre}</p>
+            <p class="text-xs text-gray-400 mb-2">$${p.precio} MXN · Stock: ${p.stock}</p>
+            <p class="text-xs text-gray-500 mb-3">${p.categoria}</p>
+            <div class="flex gap-2 mt-auto">
+              <button onclick='editarProducto("${p.id}", ${JSON.stringify(p)})' class="flex-1 bg-blue-500 hover:bg-blue-600 transition px-2 py-1 rounded-lg text-xs">
+                Editar
+              </button>
+              <button onclick="eliminarProducto('${p.id}')" class="flex-1 bg-red-500 hover:bg-red-600 transition px-2 py-1 rounded-lg text-xs">
+                Eliminar
+              </button>
             </div>
-            <button onclick='editarProducto("${doc.id}", ${JSON.stringify(p)})' class="bg-blue-500 hover:bg-blue-600 transition px-3 py-1 rounded-lg text-sm">
-              Editar
-            </button>
-            <button onclick="eliminarProducto('${doc.id}')" class="bg-red-500 hover:bg-red-600 transition px-3 py-1 rounded-lg text-sm">
-              Eliminar
-            </button>
           </div>`;
       });
+    }
+
+    function filtrarProductosAdmin() {
+      const texto = document.getElementById('buscadorAdmin').value.toLowerCase();
+      const filtrados = todosLosProductosAdmin.filter(p => p.nombre.toLowerCase().includes(texto));
+      renderizarListaAdmin(filtrados);
     }
 
     function editarProducto(id, producto) {
@@ -224,11 +250,13 @@ document.getElementById('fArchivoImagenes').addEventListener('change', async fun
       document.getElementById('fPrecio').value = producto.precio;
       document.getElementById('fStock').value = producto.stock;
       document.getElementById('fDescripcion').value = producto.descripcion || '';
-document.getElementById('fImagenes').value = producto.imagenes.join(',');
-urlsImagenesSubidas = producto.imagenes;
-document.getElementById('previewImagenes').innerHTML = producto.imagenes.map(url =>
-  `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border-2 border-green-500">`
-).join('');
+      document.getElementById('fImagenes').value = producto.imagenes.join(',');
+
+      urlsImagenesSubidas = producto.imagenes;
+      document.getElementById('previewImagenes').innerHTML = producto.imagenes.map(url =>
+        `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border-2 border-green-500">`
+      ).join('');
+
       window.scrollTo(0, 0);
     }
 
@@ -248,9 +276,9 @@ document.getElementById('previewImagenes').innerHTML = producto.imagenes.map(url
       document.getElementById('fDescripcion').value = '';
       document.getElementById('fImagenes').value = '';
       document.getElementById('fArchivoImagenes').value = '';
-document.getElementById('previewImagenes').innerHTML = '';
-document.getElementById('estadoSubida').textContent = '';
-urlsImagenesSubidas = [];
+      document.getElementById('previewImagenes').innerHTML = '';
+      document.getElementById('estadoSubida').textContent = '';
+      urlsImagenesSubidas = [];
     }
   </script>
 
