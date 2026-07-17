@@ -22,6 +22,28 @@
       font-family: 'Inter', sans-serif;
     }
   </style>
+
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
+    authDomain: "ephemeral-93275.firebaseapp.com",
+    projectId: "ephemeral-93275",
+    storageBucket: "ephemeral-93275.firebasestorage.app",
+    messagingSenderId: "834738629296",
+    appId: "1:834738629296:web:4dc2ad46ed8a2142522975"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+</script>
+
 </head>
 
 <body class="bg-black text-white min-h-screen flex flex-col">
@@ -56,71 +78,69 @@
   </section>
 
   <!-- SCRIPT PARA CARGAR PRODUCTOS -->
-  <script>
-    // Función para cargar productos desde JSON
-    async function cargarProductos() {
-      try {
-        const response = await fetch('productos.json');
-        const productos = await response.json();
-        
-        const container = document.getElementById('productos-container');
-        
-        productos.forEach(producto => {
-          const productoHTML = `
-            <div class="bg-zinc-900 rounded-2xl shadow-lg p-4 hover:scale-105 transition duration-300">
+<script>
+  async function cargarProductos() {
+    try {
+      const container = document.getElementById('productos-container');
+      const snapshot = await db.collection('productos').get();
 
-              <img id="principal${producto.id}" 
-                   src="${producto.imagenes[0]}"
-                   alt="${producto.nombre}"
-                   loading="lazy"
-                   class="rounded-xl mb-4 w-full h-[350px] object-cover transition duration-300">
+      snapshot.forEach(doc => {
+        const producto = doc.data();
+        const id = doc.id;
 
-              <div class="flex gap-3 mb-4 justify-center">
-                ${producto.imagenes.map((img, index) => `
-                  <img src="${img}"
-                       alt="Vista ${index + 1} ${producto.nombre}"
-                       loading="lazy"
-                       class="h-16 w-16 object-cover rounded cursor-pointer border border-gray-600 hover:border-white transition"
-                       onclick="cambiarImagen('principal${producto.id}', '${img}')">
-                `).join('')}
-              </div>
+        const productoHTML = `
+          <div class="bg-zinc-900 rounded-2xl shadow-lg p-4 hover:scale-105 transition duration-300">
 
-              <h3 class="text-lg font-semibold">${producto.nombre}</h3>
-              <p class="text-gray-400 mb-3">$${producto.precio} MXN</p>
+            <img id="principal${id}" 
+                 src="${producto.imagenes[0]}"
+                 alt="${producto.nombre}"
+                 loading="lazy"
+                 class="rounded-xl mb-4 w-full h-[350px] object-cover transition duration-300">
 
-              <button type="button"
-                      onclick="enviarWhatsApp('${producto.nombre}')" 
-                      class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
-                Pedir por WhatsApp
-              </button>
-
+            <div class="flex gap-3 mb-4 justify-center">
+              ${producto.imagenes.map((img, index) => `
+                <img src="${img}"
+                     alt="Vista ${index + 1} ${producto.nombre}"
+                     loading="lazy"
+                     class="h-16 w-16 object-cover rounded cursor-pointer border border-gray-600 hover:border-white transition"
+                     onclick="cambiarImagen('principal${id}', '${img}')">
+              `).join('')}
             </div>
-          `;
-          
-          container.innerHTML += productoHTML;
-        });
+
+            <h3 class="text-lg font-semibold">${producto.nombre}</h3>
+            <p class="text-gray-400 mb-3">$${producto.precio} MXN</p>
+            <p class="text-sm text-gray-500 mb-3">Stock: ${producto.stock}</p>
+
+            <button type="button"
+                    onclick="enviarWhatsApp('${producto.nombre}')" 
+                    class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+              Pedir por WhatsApp
+            </button>
+
+          </div>
+        `;
         
-      } catch (error) {
-        console.error('Error al cargar productos:', error);
-      }
+        container.innerHTML += productoHTML;
+      });
+      
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
     }
+  }
 
-    // Función para cambiar imagen principal
-    function cambiarImagen(id, nuevaSrc) {
-      document.getElementById(id).src = nuevaSrc;
-    }
+  function cambiarImagen(id, nuevaSrc) {
+    document.getElementById(id).src = nuevaSrc;
+  }
 
-    // Función para WhatsApp
-    function enviarWhatsApp(nombreProducto) {
-      const numero = "523241050666";
-      const mensaje = `Hola, me interesa el ${nombreProducto}`;
-      const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-      window.open(url, "_blank");
-    }
+  function enviarWhatsApp(nombreProducto) {
+    const numero = "523241014030";
+    const mensaje = `Hola, me interesa el ${nombreProducto}`;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, "_blank");
+  }
 
-    // Cargar productos al cargar la página
-    window.addEventListener('DOMContentLoaded', cargarProductos);
-  </script>
+  window.addEventListener('DOMContentLoaded', cargarProductos);
+</script>
 
 <!-- FOOTER -->
 <footer class="bg-white text-black mt-24 border-t border-gray-200">
