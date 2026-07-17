@@ -4,194 +4,389 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Catálogo 2026 EPHEMERAL - Ropa deportiva exclusiva con calidad y estilo.">
-
   <title>Catálogo 2026</title>
-<link rel="icon" type="image/png" href="images/Logo.png">
-  <!-- Preconnect Fuente -->
+  <link rel="icon" type="image/png" href="images/Logo.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Fuente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
+    body { font-family: 'Inter', sans-serif; }
+    .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
   </style>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
-    authDomain: "ephemeral-93275.firebaseapp.com",
-    projectId: "ephemeral-93275",
-    storageBucket: "ephemeral-93275.firebasestorage.app",
-    messagingSenderId: "834738629296",
-    appId: "1:834738629296:web:4dc2ad46ed8a2142522975"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
-</script>
-
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
+      authDomain: "ephemeral-93275.firebaseapp.com",
+      projectId: "ephemeral-93275",
+      storageBucket: "ephemeral-93275.firebasestorage.app",
+      messagingSenderId: "834738629296",
+      appId: "1:834738629296:web:4dc2ad46ed8a2142522975"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
 </head>
 
 <body class="bg-black text-white min-h-screen flex flex-col">
 
-  <!-- NAVBAR -->
-<nav class="bg-white shadow-md py-4 border-b border-zinc-800">
-  <div class="max-w-6xl mx-auto px-4">
-    
-    <!-- Versión móvil -->
-    <div class="flex md:hidden flex-col items-center gap-3">
-      <img src="images/LogoCompleto.png" alt="Logo EPHEMERAL" loading="lazy" class="h-12 object-contain">
-      <h1 class="text-xl font-bold tracking-wide text-black">CATÁLOGO 2026</h1>
+  <!-- HEADER -->
+  <header class="bg-white shadow-md py-4 border-b border-zinc-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto flex items-center justify-between px-4 gap-4">
+
+      <!-- Botón menú móvil -->
+      <button id="btnMenuMovil" class="md:hidden text-black text-2xl">☰</button>
+
+      <!-- Logo centro (click = inicio) -->
+      <div class="flex-1 flex justify-center md:justify-start">
+        <img src="images/LogoCompleto.png" alt="Logo EPHEMERAL" class="h-12 object-contain cursor-pointer" onclick="irInicio()">
+      </div>
+
+      <!-- Buscador + Carrito -->
+      <div class="flex items-center gap-3">
+        <input id="inputBuscador"
+               type="text"
+               placeholder="Buscar..."
+               class="hidden sm:block border border-gray-300 rounded-lg px-3 py-2 text-black text-sm w-32 md:w-56 focus:outline-none focus:ring-2 focus:ring-black"
+               oninput="filtrarProductos()">
+
+        <button onclick="toggleCarrito()" class="relative text-black text-2xl">
+          🛒
+          <span id="contadorCarrito" class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+        </button>
+      </div>
+
     </div>
 
-    <!-- Versión desktop -->
-    <div class="hidden md:flex items-center justify-between">
-      <img src="images/LogoLetras.png" alt="Logo letras EPHEMERAL" loading="lazy" class="h-12 object-contain">
-      <h1 class="text-3xl font-bold tracking-wide text-black">CATÁLOGO 2026</h1>
-      <img src="images/LogoCompleto.png" alt="Logo completo EPHEMERAL" loading="lazy" class="h-12 object-contain">
+    <!-- Buscador móvil (debajo, solo pantallas chicas) -->
+    <div class="sm:hidden px-4 mt-3">
+      <input id="inputBuscadorMovil"
+             type="text"
+             placeholder="Buscar productos..."
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-black text-sm focus:outline-none focus:ring-2 focus:ring-black"
+             oninput="filtrarProductos()">
     </div>
+  </header>
+
+  <div class="flex flex-1">
+
+    <!-- SIDEBAR CATEGORÍAS -->
+    <aside id="sidebar" class="hidden md:block w-56 bg-zinc-900 border-r border-zinc-800 p-4 sidebar-scroll overflow-y-auto">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase mb-4">Categorías</h2>
+      <ul id="listaCategorias" class="space-y-2">
+        <li>
+          <button onclick="filtrarCategoria('todos')" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium bg-zinc-800">
+            Todos
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Sidebar móvil (overlay) -->
+    <div id="sidebarMovil" class="hidden fixed inset-0 bg-black/70 z-50 md:hidden">
+      <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold text-gray-400 uppercase">Categorías</h2>
+          <button onclick="toggleMenuMovil()" class="text-white text-xl">✕</button>
+        </div>
+        <ul id="listaCategoriasMovil" class="space-y-2"></ul>
+      </aside>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 p-6">
+      <div id="productos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+      <p id="sinResultados" class="hidden text-center text-gray-500 mt-10">No se encontraron productos.</p>
+    </main>
 
   </div>
-</nav>
 
-  <!-- CONTENIDO -->
-<section class="max-w-6xl mx-auto py-12 px-4 flex-grow">
+  <!-- CARRITO LATERAL -->
+  <div id="carritoOverlay" class="hidden fixed inset-0 bg-black/70 z-50">
+    <div class="absolute right-0 top-0 w-full sm:w-96 h-full bg-zinc-900 p-6 overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Tu Carrito</h2>
+        <button onclick="toggleCarrito()" class="text-2xl">✕</button>
+      </div>
 
-    <div id="productos-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-      <!-- Los productos se cargarán aquí automáticamente -->
+      <div id="carritoItems" class="space-y-4"></div>
+
+      <p id="carritoVacio" class="text-gray-500 text-center mt-6">Tu carrito está vacío</p>
+
+      <div id="carritoTotal" class="hidden mt-6 border-t border-zinc-700 pt-4">
+        <div class="flex justify-between text-lg font-semibold mb-4">
+          <span>Total:</span>
+          <span id="totalPrecio">$0 MXN</span>
+        </div>
+        <button onclick="enviarPedidoWhatsApp()" class="w-full bg-green-500 hover:bg-green-600 transition text-white py-3 rounded-lg font-semibold">
+          Finalizar pedido por WhatsApp
+        </button>
+      </div>
     </div>
+  </div>
 
-  </section>
+  <!-- FOOTER -->
+  <footer class="bg-white text-black border-t border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 items-center text-center">
+      <div class="flex justify-center md:justify-start">
+        <img src="images/Logo.png" alt="Logo EPHEMERAL" class="h-16 object-contain">
+      </div>
+      <div>
+        <h3 class="text-xl font-semibold tracking-wide mb-2">EPHEMERAL</h3>
+        <p class="text-sm text-gray-600">Calidad • Estilo • Exclusividad</p>
+        <div class="mt-4 flex items-center justify-center gap-2">
+          <a href="https://instagram.com/ephemeral_gym_clothes" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 group transition">
+            <img src="images/LogoInsta.png" alt="Instagram EPHEMERAL" class="h-5 w-5 object-contain">
+            <span class="text-sm text-gray-700 font-medium border-b border-transparent group-hover:border-black transition duration-300">
+              ephemeral_gym_clothes
+            </span>
+          </a>
+        </div>
+      </div>
+      <div class="flex justify-center md:justify-end">
+        <img src="images/LogoLetras.png" alt="Logo letras EPHEMERAL" class="h-16 object-contain">
+      </div>
+    </div>
+  </footer>
 
-  <!-- SCRIPT PARA CARGAR PRODUCTOS -->
-<script>
-  async function cargarProductos() {
-    try {
+  <script>
+    let todosLosProductos = [];
+    let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
+    let categoriaActiva = 'todos';
+
+    async function cargarProductos() {
+      try {
+        const snapshot = await db.collection('productos').get();
+        todosLosProductos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        generarCategorias();
+        renderizarProductos(todosLosProductos);
+        actualizarCarritoUI();
+      } catch (error) {
+        console.error('Error al cargar productos:', error);
+      }
+    }
+
+    function generarCategorias() {
+      const categorias = [...new Set(todosLosProductos.map(p => p.categoria))];
+      const listaDesktop = document.getElementById('listaCategorias');
+      const listaMovil = document.getElementById('listaCategoriasMovil');
+
+      let htmlMovil = `<li><button onclick="filtrarCategoria('todos'); toggleMenuMovil()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">Todos</button></li>`;
+
+      categorias.forEach(cat => {
+        const nombreBonito = cat.charAt(0).toUpperCase() + cat.slice(1);
+        listaDesktop.innerHTML += `
+          <li>
+            <button onclick="filtrarCategoria('${cat}')" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium">
+              ${nombreBonito}
+            </button>
+          </li>`;
+        htmlMovil += `
+          <li>
+            <button onclick="filtrarCategoria('${cat}'); toggleMenuMovil()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
+              ${nombreBonito}
+            </button>
+          </li>`;
+      });
+
+      listaMovil.innerHTML = htmlMovil;
+    }
+
+    function filtrarCategoria(categoria) {
+      categoriaActiva = categoria;
+
+      document.querySelectorAll('.categoria-btn').forEach(btn => btn.classList.remove('bg-zinc-800'));
+      event.target.classList.add('bg-zinc-800');
+
+      filtrarProductos();
+    }
+
+    function filtrarProductos() {
+      const textoBusqueda = (document.getElementById('inputBuscador').value ||
+                              document.getElementById('inputBuscadorMovil').value || '').toLowerCase();
+
+      let filtrados = todosLosProductos;
+
+      if (categoriaActiva !== 'todos') {
+        filtrados = filtrados.filter(p => p.categoria === categoriaActiva);
+      }
+
+      if (textoBusqueda) {
+        filtrados = filtrados.filter(p => p.nombre.toLowerCase().includes(textoBusqueda));
+      }
+
+      renderizarProductos(filtrados);
+    }
+
+    function renderizarProductos(productos) {
       const container = document.getElementById('productos-container');
-      const snapshot = await db.collection('productos').get();
+      const sinResultados = document.getElementById('sinResultados');
 
-      snapshot.forEach(doc => {
-        const producto = doc.data();
-        const id = doc.id;
+      container.innerHTML = '';
 
+      if (productos.length === 0) {
+        sinResultados.classList.remove('hidden');
+        return;
+      }
+      sinResultados.classList.add('hidden');
+
+      productos.forEach(producto => {
         const productoHTML = `
           <div class="bg-zinc-900 rounded-2xl shadow-lg p-4 hover:scale-105 transition duration-300">
-
-            <img id="principal${id}" 
+            <img id="principal${producto.id}"
                  src="${producto.imagenes[0]}"
                  alt="${producto.nombre}"
                  loading="lazy"
-                 class="rounded-xl mb-4 w-full h-[350px] object-cover transition duration-300">
+                 class="rounded-xl mb-4 w-full h-[300px] object-cover transition duration-300">
 
             <div class="flex gap-3 mb-4 justify-center">
               ${producto.imagenes.map((img, index) => `
                 <img src="${img}"
-                     alt="Vista ${index + 1} ${producto.nombre}"
+                     alt="Vista ${index + 1}"
                      loading="lazy"
-                     class="h-16 w-16 object-cover rounded cursor-pointer border border-gray-600 hover:border-white transition"
-                     onclick="cambiarImagen('principal${id}', '${img}')">
+                     class="h-14 w-14 object-cover rounded cursor-pointer border border-gray-600 hover:border-white transition"
+                     onclick="cambiarImagen('principal${producto.id}', '${img}')">
               `).join('')}
             </div>
 
             <h3 class="text-lg font-semibold">${producto.nombre}</h3>
-            <p class="text-gray-400 mb-3">$${producto.precio} MXN</p>
-            <p class="text-sm text-gray-500 mb-3">Stock: ${producto.stock}</p>
+            <p class="text-gray-400 mb-1">$${producto.precio} MXN</p>
+            <p class="text-xs text-gray-500 mb-3">Stock: ${producto.stock}</p>
 
-            <button type="button"
-                    onclick="enviarWhatsApp('${producto.nombre}')" 
-                    class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
-              Pedir por WhatsApp
+            <button onclick='agregarAlCarrito(${JSON.stringify(producto)})'
+                    class="w-full bg-green-500 hover:bg-green-600 transition text-white px-4 py-2 rounded-lg">
+              Añadir al carrito
             </button>
-
-          </div>
-        `;
-        
+          </div>`;
         container.innerHTML += productoHTML;
       });
-      
-    } catch (error) {
-      console.error('Error al cargar productos:', error);
     }
-  }
 
-  function cambiarImagen(id, nuevaSrc) {
-    document.getElementById(id).src = nuevaSrc;
-  }
+    function cambiarImagen(id, nuevaSrc) {
+      document.getElementById(id).src = nuevaSrc;
+    }
 
-  function enviarWhatsApp(nombreProducto) {
-    const numero = "523241014030";
-    const mensaje = `Hola, me interesa el ${nombreProducto}`;
-    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
-  }
+    // ===== CARRITO =====
+    function agregarAlCarrito(producto) {
+      const existente = carrito.find(item => item.id === producto.id);
+      if (existente) {
+        existente.cantidad += 1;
+      } else {
+        carrito.push({ ...producto, cantidad: 1 });
+      }
+      guardarCarrito();
+      actualizarCarritoUI();
+      toggleCarrito();
+    }
 
-  window.addEventListener('DOMContentLoaded', cargarProductos);
-</script>
+    function quitarDelCarrito(id) {
+      carrito = carrito.filter(item => item.id !== id);
+      guardarCarrito();
+      actualizarCarritoUI();
+    }
 
-<!-- FOOTER -->
-<footer class="bg-white text-black mt-24 border-t border-gray-200">
+    function cambiarCantidad(id, delta) {
+      const item = carrito.find(i => i.id === id);
+      if (!item) return;
+      item.cantidad += delta;
+      if (item.cantidad <= 0) {
+        quitarDelCarrito(id);
+      } else {
+        guardarCarrito();
+        actualizarCarritoUI();
+      }
+    }
 
-  <div class="max-w-7xl mx-auto px-6 py-12 
-              grid grid-cols-1 md:grid-cols-3 
-              items-center text-center">
+    function guardarCarrito() {
+      sessionStorage.setItem('carrito', JSON.stringify(carrito));
+    }
 
-    <div class="flex justify-center md:justify-start">
-      <img src="images/Logo.png" alt="Logo EPHEMERAL" loading="lazy" class="h-16 object-contain">
-    </div>
+    function actualizarCarritoUI() {
+      const contador = document.getElementById('contadorCarrito');
+      const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+      contador.textContent = totalItems;
 
-    <div>
-      <h3 class="text-xl font-semibold tracking-wide mb-2">
-        EPHEMERAL
-      </h3>
-      <p class="text-sm text-gray-600">
-        Calidad • Estilo • Exclusividad
-      </p>
+      const carritoItems = document.getElementById('carritoItems');
+      const carritoVacio = document.getElementById('carritoVacio');
+      const carritoTotal = document.getElementById('carritoTotal');
 
-      <div class="mt-4 flex items-center justify-center gap-2">
-  
-        <a href="https://instagram.com/ephemeral_gym_clothes" 
-           target="_blank"
-           rel="noopener noreferrer"
-           class="flex items-center gap-2 group transition">
+      if (carrito.length === 0) {
+        carritoItems.innerHTML = '';
+        carritoVacio.classList.remove('hidden');
+        carritoTotal.classList.add('hidden');
+        return;
+      }
 
-          <img src="images/LogoInsta.png" 
-               alt="Instagram EPHEMERAL"
-               loading="lazy"
-               class="h-5 w-5 object-contain">
+      carritoVacio.classList.add('hidden');
+      carritoTotal.classList.remove('hidden');
 
-          <span class="text-sm text-gray-700 font-medium 
-               border-b border-transparent 
-               group-hover:border-black 
-               transition duration-300">
-            ephemeral_gym_clothes
-          </span>
+      let total = 0;
+      carritoItems.innerHTML = carrito.map(item => {
+        total += item.precio * item.cantidad;
+        return `
+          <div class="flex gap-3 items-center bg-zinc-800 rounded-lg p-3">
+            <img src="${item.imagenes[0]}" class="w-16 h-16 object-cover rounded">
+            <div class="flex-1">
+              <p class="text-sm font-medium">${item.nombre}</p>
+              <p class="text-xs text-gray-400">$${item.precio} MXN</p>
+              <div class="flex items-center gap-2 mt-1">
+                <button onclick="cambiarCantidad('${item.id}', -1)" class="bg-zinc-700 w-6 h-6 rounded text-sm">-</button>
+                <span class="text-sm">${item.cantidad}</span>
+                <button onclick="cambiarCantidad('${item.id}', 1)" class="bg-zinc-700 w-6 h-6 rounded text-sm">+</button>
+              </div>
+            </div>
+            <button onclick="quitarDelCarrito('${item.id}')" class="text-red-500 text-sm">✕</button>
+          </div>`;
+      }).join('');
 
-        </a>
+      document.getElementById('totalPrecio').textContent = `$${total} MXN`;
+    }
 
-      </div>
-    </div>
+    function toggleCarrito() {
+      document.getElementById('carritoOverlay').classList.toggle('hidden');
+    }
 
-    <div class="flex justify-center md:justify-end">
-      <img src="images/LogoLetras.png" alt="Logo letras EPHEMERAL" loading="lazy" class="h-16 object-contain">
-    </div>
+    function toggleMenuMovil() {
+      document.getElementById('sidebarMovil').classList.toggle('hidden');
+    }
 
-  </div>
+    function irInicio() {
+      categoriaActiva = 'todos';
+      document.getElementById('inputBuscador').value = '';
+      document.getElementById('inputBuscadorMovil').value = '';
+      renderizarProductos(todosLosProductos);
+    }
 
-</footer>
+    function enviarPedidoWhatsApp() {
+      const numero = "523241014030";
+      let mensaje = "Hola, quiero hacer el siguiente pedido:%0A%0A";
+      let total = 0;
+
+      carrito.forEach(item => {
+        mensaje += `- ${item.nombre} x${item.cantidad} = $${item.precio * item.cantidad} MXN%0A`;
+        total += item.precio * item.cantidad;
+      });
+
+      mensaje += `%0ATotal: $${total} MXN`;
+
+      const url = `https://wa.me/${numero}?text=${mensaje}`;
+      window.open(url, "_blank");
+    }
+
+    document.getElementById('btnMenuMovil').addEventListener('click', toggleMenuMovil);
+
+    window.addEventListener('DOMContentLoaded', cargarProductos);
+  </script>
 
 </body>
 </html>
