@@ -76,7 +76,12 @@
           <input id="fNombre" type="text" placeholder="Nombre del producto" class="px-4 py-2 rounded-lg text-black">
           <input id="fCategoria" type="text" placeholder="Categoría (ej: sueteres)" class="px-4 py-2 rounded-lg text-black">
           <input id="fPrecio" type="number" placeholder="Precio MXN" class="px-4 py-2 rounded-lg text-black">
-          <input id="fStock" type="number" placeholder="Stock disponible" class="px-4 py-2 rounded-lg text-black">
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm text-gray-400 mb-2">Tallas y stock (deja solo una fila con "Única" si el producto no maneja tallas)</label>
+          <div id="contenedorTallas" class="space-y-2 mb-2"></div>
+          <button type="button" onclick="agregarFilaTalla()" class="text-xs bg-zinc-700 hover:bg-zinc-600 px-3 py-1 rounded-lg">+ Agregar talla</button>
         </div>
 
         <textarea id="fDescripcion" placeholder="Descripción" class="w-full px-4 py-2 rounded-lg text-black mb-4" rows="2"></textarea>
@@ -141,6 +146,30 @@
       }
     });
 
+    // ===== TALLAS DINÁMICAS =====
+    function agregarFilaTalla(nombre = '', stock = '') {
+      const contenedor = document.getElementById('contenedorTallas');
+      const fila = document.createElement('div');
+      fila.className = 'flex gap-2 items-center talla-fila';
+      fila.innerHTML = `
+        <input type="text" placeholder="Nombre talla (ej: Chica)" value="${nombre}" class="talla-nombre flex-1 px-3 py-2 rounded-lg text-black text-sm">
+        <input type="number" placeholder="Stock" value="${stock}" class="talla-stock w-24 px-3 py-2 rounded-lg text-black text-sm">
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-500 text-sm px-2">✕</button>
+      `;
+      contenedor.appendChild(fila);
+    }
+
+    function obtenerTallasDelFormulario() {
+      const filas = document.querySelectorAll('.talla-fila');
+      const tallas = [];
+      filas.forEach(fila => {
+        const nombre = fila.querySelector('.talla-nombre').value.trim();
+        const stock = Number(fila.querySelector('.talla-stock').value) || 0;
+        if (nombre) tallas.push({ nombre, stock });
+      });
+      return tallas;
+    }
+
     // ===== SUBIDA DE IMÁGENES (ImgBB) =====
     document.getElementById('fArchivoImagenes').addEventListener('change', async function(e) {
       const archivos = Array.from(e.target.files);
@@ -184,13 +213,18 @@
         nombre: document.getElementById('fNombre').value,
         categoria: document.getElementById('fCategoria').value.toLowerCase(),
         precio: Number(document.getElementById('fPrecio').value),
-        stock: Number(document.getElementById('fStock').value),
+        tallas: obtenerTallasDelFormulario(),
         descripcion: document.getElementById('fDescripcion').value,
         imagenes: document.getElementById('fImagenes').value.split(',').map(s => s.trim()).filter(Boolean)
       };
 
       if (!producto.nombre || !producto.categoria || !producto.precio) {
         alert('Llena al menos nombre, categoría y precio');
+        return;
+      }
+
+      if (producto.tallas.length === 0) {
+        alert('Agrega al menos una talla con su stock (usa "Única" si no maneja tallas)');
         return;
       }
 
@@ -207,6 +241,13 @@
       }
     }
 
+    function calcularStockTotal(producto) {
+      if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+        return producto.tallas.reduce((sum, t) => sum + (t.stock || 0), 0);
+      }
+      return producto.stock || 0;
+    }
+
     async function cargarListaProductos() {
       const snapshot = await db.collection('productos').get();
       todosLosProductosAdmin = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -218,11 +259,12 @@
       contenedor.innerHTML = '';
 
       productos.forEach(p => {
+        const stockTotal = calcularStockTotal(p);
         contenedor.innerHTML += `
           <div class="bg-zinc-900 rounded-xl p-3 flex flex-col">
             <img src="${p.imagenes[0]}" class="w-full h-32 object-cover rounded-lg mb-2">
             <p class="font-semibold text-sm truncate">${p.nombre}</p>
-            <p class="text-xs text-gray-400 mb-2">$${p.precio} MXN · Stock: ${p.stock}</p>
+            <p class="text-xs text-gray-400 mb-2">$${p.precio} MXN · Stock total: ${stockTotal}</p>
             <p class="text-xs text-gray-500 mb-3">${p.categoria}</p>
             <div class="flex gap-2 mt-auto">
               <button onclick='editarProducto("${p.id}", ${JSON.stringify(p)})' class="flex-1 bg-blue-500 hover:bg-blue-600 transition px-2 py-1 rounded-lg text-xs">
@@ -248,9 +290,16 @@
       document.getElementById('fNombre').value = producto.nombre;
       document.getElementById('fCategoria').value = producto.categoria;
       document.getElementById('fPrecio').value = producto.precio;
-      document.getElementById('fStock').value = producto.stock;
       document.getElementById('fDescripcion').value = producto.descripcion || '';
       document.getElementById('fImagenes').value = producto.imagenes.join(',');
+
+      // Cargar tallas existentes (o convertir stock viejo a una fila "Única")
+      document.getElementById('contenedorTallas').innerHTML = '';
+      if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+        producto.tallas.forEach(t => agregarFilaTalla(t.nombre, t.stock));
+      } else {
+        agregarFilaTalla('Única', producto.stock || 0);
+      }
 
       urlsImagenesSubidas = producto.imagenes;
       document.getElementById('previewImagenes').innerHTML = producto.imagenes.map(url =>
@@ -272,14 +321,19 @@
       document.getElementById('fNombre').value = '';
       document.getElementById('fCategoria').value = '';
       document.getElementById('fPrecio').value = '';
-      document.getElementById('fStock').value = '';
       document.getElementById('fDescripcion').value = '';
       document.getElementById('fImagenes').value = '';
       document.getElementById('fArchivoImagenes').value = '';
       document.getElementById('previewImagenes').innerHTML = '';
       document.getElementById('estadoSubida').textContent = '';
       urlsImagenesSubidas = [];
+
+      document.getElementById('contenedorTallas').innerHTML = '';
+      agregarFilaTalla();
     }
+
+    // Fila de talla inicial al cargar la página
+    agregarFilaTalla();
   </script>
 
 </body>

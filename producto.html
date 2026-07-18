@@ -11,9 +11,7 @@
     body { font-family: 'Inter', sans-serif; }
     .sidebar-scroll::-webkit-scrollbar { width: 4px; }
     .sidebar-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-    .zoom-container { cursor: zoom-in; overflow: hidden; }
-    .zoom-container img { transition: transform 0.2s ease; }
-    .zoom-container.zoomed img { cursor: zoom-out; }
+    .zoom-container { cursor: zoom-in; overflow: hidden; position: relative; }
   </style>
 
   <!-- Firebase SDK -->
@@ -49,16 +47,17 @@
       </div>
       <div class="flex items-center gap-3">
         <a href="admin.html" class="text-black text-xl" title="Panel Admin">⚙️</a>
-        <a href="index.html" class="relative text-black text-2xl" title="Ver carrito">
+        <button onclick="toggleCarrito()" class="relative text-black text-2xl">
           🛒
-        </a>
+          <span id="contadorCarrito" class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+        </button>
       </div>
     </div>
   </header>
 
   <div class="flex flex-1 md:pl-16">
 
-    <!-- SIDEBAR (igual que index) -->
+    <!-- SIDEBAR -->
     <aside id="sidebar" class="hidden md:flex group fixed top-0 left-0 h-screen w-16 hover:w-56 bg-white border-r border-gray-200 p-4 sidebar-scroll overflow-y-auto overflow-x-hidden transition-all duration-300 flex-col z-50">
       <div class="flex md:group-hover:hidden justify-center items-center h-12 mb-4">
         <span class="text-2xl text-black">☰</span>
@@ -66,7 +65,7 @@
       <h2 class="text-sm font-semibold text-gray-500 uppercase mb-4 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         Categorías
       </h2>
-      <ul id="listaCategorias" class="space-y-2 hidden group-hover:block">
+      <ul class="space-y-2 hidden group-hover:block">
         <li>
           <a href="index.html" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black whitespace-nowrap">
             ← Ver catálogo
@@ -108,13 +107,20 @@
 
       <div id="detalleProducto" class="hidden max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
 
-        <!-- IMAGEN CON ZOOM -->
+        <!-- IMAGEN CON NAVEGACIÓN Y ZOOM -->
         <div>
           <div id="zoomContainer" class="zoom-container bg-zinc-900 rounded-2xl mb-4">
-            <img id="imgPrincipal" src="" alt="" class="w-full h-[400px] md:h-[500px] object-cover rounded-2xl">
+            <img id="imgPrincipal" src="" alt="" class="w-full h-[400px] md:h-[500px] object-cover rounded-2xl select-none">
+
+            <button onclick="imagenAnterior(event)" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 transition w-9 h-9 rounded-full flex items-center justify-center text-xl">
+              ‹
+            </button>
+            <button onclick="imagenSiguiente(event)" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 transition w-9 h-9 rounded-full flex items-center justify-center text-xl">
+              ›
+            </button>
           </div>
           <div id="miniaturas" class="flex gap-3 justify-center flex-wrap"></div>
-          <p class="text-xs text-gray-500 text-center mt-2">Toca la imagen para ampliar</p>
+          <p class="text-xs text-gray-500 text-center mt-2">Desliza o usa las flechas · toca para ampliar</p>
         </div>
 
         <!-- INFO PRODUCTO -->
@@ -159,6 +165,27 @@
     </main>
   </div>
 
+  <!-- CARRITO LATERAL -->
+  <div id="carritoOverlay" class="hidden fixed inset-0 bg-black/70 z-50">
+    <div class="absolute right-0 top-0 w-full sm:w-96 h-full bg-zinc-900 p-6 overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Tu Carrito</h2>
+        <button onclick="toggleCarrito()" class="text-2xl">✕</button>
+      </div>
+      <div id="carritoItems" class="space-y-4"></div>
+      <p id="carritoVacio" class="text-gray-500 text-center mt-6">Tu carrito está vacío</p>
+      <div id="carritoTotal" class="hidden mt-6 border-t border-zinc-700 pt-4">
+        <div class="flex justify-between text-lg font-semibold mb-4">
+          <span>Total:</span>
+          <span id="totalPrecio">$0 MXN</span>
+        </div>
+        <button onclick="irAPedido()" class="w-full bg-green-500 hover:bg-green-600 transition text-white py-3 rounded-lg font-semibold">
+          Finalizar pedido
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL ZOOM -->
   <div id="modalZoom" class="hidden fixed inset-0 bg-black/95 z-[100] items-center justify-center p-4">
     <button onclick="cerrarZoom()" class="absolute top-4 right-4 text-white text-3xl">✕</button>
@@ -171,24 +198,19 @@
     let tallaSeleccionada = null;
     let cantidadSeleccionada = 1;
     let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
+    let indiceImagenActual = 0;
 
-    // Obtener ID del producto desde la URL
     const params = new URLSearchParams(window.location.search);
     const productoId = params.get('id');
 
     async function cargarProducto() {
-      if (!productoId) {
-        mostrarNoEncontrado();
-        return;
-      }
+      if (!productoId) { mostrarNoEncontrado(); return; }
       try {
         const doc = await db.collection('productos').doc(productoId).get();
-        if (!doc.exists) {
-          mostrarNoEncontrado();
-          return;
-        }
+        if (!doc.exists) { mostrarNoEncontrado(); return; }
         producto = { id: doc.id, ...doc.data() };
         renderizarProducto();
+        actualizarCarritoUI();
       } catch (error) {
         console.error(error);
         mostrarNoEncontrado();
@@ -200,6 +222,13 @@
       document.getElementById('productoNoEncontrado').classList.remove('hidden');
     }
 
+    function obtenerTallas() {
+      if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+        return producto.tallas;
+      }
+      return [{ nombre: "Única", stock: producto.stock || 0 }];
+    }
+
     function renderizarProducto() {
       document.getElementById('cargando').classList.add('hidden');
       document.getElementById('detalleProducto').classList.remove('hidden');
@@ -207,42 +236,87 @@
       document.getElementById('nombreProducto').textContent = producto.nombre;
       document.getElementById('precioProducto').textContent = `$${producto.precio} MXN`;
       document.getElementById('descripcionProducto').textContent = producto.descripcion || '';
-      document.getElementById('stockDisponible').textContent = `Stock disponible: ${producto.stock}`;
 
+      indiceImagenActual = 0;
       document.getElementById('imgPrincipal').src = producto.imagenes[0];
 
       const miniaturas = document.getElementById('miniaturas');
       miniaturas.innerHTML = producto.imagenes.map((img, i) => `
-        <img src="${img}" onclick="cambiarImagenPrincipal('${img}')"
+        <img src="${img}" onclick="irAImagen(${i})"
              class="h-16 w-16 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-white transition">
       `).join('');
 
-      const tallas = (producto.tallas && producto.tallas.length > 0) ? producto.tallas : TALLAS_DEFAULT;
+      const tallas = obtenerTallas();
       const selectorTallas = document.getElementById('selectorTallas');
       selectorTallas.innerHTML = tallas.map(t => `
-        <button onclick="seleccionarTalla('${t}', this)" class="talla-btn px-4 py-2 rounded-lg border border-zinc-600 hover:border-white transition text-sm">
-          ${t}
+        <button onclick='seleccionarTalla(${JSON.stringify(t)}, this)'
+                class="talla-btn px-4 py-2 rounded-lg border transition text-sm ${t.stock === 0 ? 'border-zinc-800 text-gray-600 cursor-not-allowed' : 'border-zinc-600 hover:border-white'}"
+                ${t.stock === 0 ? 'disabled' : ''}>
+          ${t.nombre} ${t.stock === 0 ? '(agotado)' : ''}
         </button>
       `).join('');
     }
 
-    function cambiarImagenPrincipal(src) {
-      document.getElementById('imgPrincipal').src = src;
+    function irAImagen(indice) {
+      indiceImagenActual = indice;
+      document.getElementById('imgPrincipal').src = producto.imagenes[indiceImagenActual];
     }
+
+    function imagenAnterior(e) {
+      e.stopPropagation();
+      indiceImagenActual = (indiceImagenActual - 1 + producto.imagenes.length) % producto.imagenes.length;
+      document.getElementById('imgPrincipal').src = producto.imagenes[indiceImagenActual];
+    }
+
+    function imagenSiguiente(e) {
+      e.stopPropagation();
+      indiceImagenActual = (indiceImagenActual + 1) % producto.imagenes.length;
+      document.getElementById('imgPrincipal').src = producto.imagenes[indiceImagenActual];
+    }
+
+    let touchStartX = 0;
+    document.getElementById('zoomContainer').addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+    document.getElementById('zoomContainer').addEventListener('touchend', e => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const diferencia = touchStartX - touchEndX;
+      if (Math.abs(diferencia) > 50) {
+        if (diferencia > 0) {
+          indiceImagenActual = (indiceImagenActual + 1) % producto.imagenes.length;
+        } else {
+          indiceImagenActual = (indiceImagenActual - 1 + producto.imagenes.length) % producto.imagenes.length;
+        }
+        document.getElementById('imgPrincipal').src = producto.imagenes[indiceImagenActual];
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!producto) return;
+      if (e.key === 'ArrowLeft') imagenAnterior(e);
+      if (e.key === 'ArrowRight') imagenSiguiente(e);
+    });
 
     function seleccionarTalla(talla, btn) {
       tallaSeleccionada = talla;
+      cantidadSeleccionada = 1;
+      document.getElementById('inputCantidad').value = 1;
       document.querySelectorAll('.talla-btn').forEach(b => {
         b.classList.remove('bg-white', 'text-black', 'border-white');
       });
       btn.classList.add('bg-white', 'text-black', 'border-white');
       document.getElementById('errorSeleccion').classList.add('hidden');
+      document.getElementById('stockDisponible').textContent = `Stock disponible: ${talla.stock}`;
     }
 
     function cambiarCantidadProducto(delta) {
+      if (!tallaSeleccionada) {
+        document.getElementById('errorSeleccion').classList.remove('hidden');
+        return;
+      }
       const nueva = cantidadSeleccionada + delta;
       if (nueva < 1) return;
-      if (nueva > producto.stock) return;
+      if (nueva > tallaSeleccionada.stock) return;
       cantidadSeleccionada = nueva;
       document.getElementById('inputCantidad').value = cantidadSeleccionada;
     }
@@ -255,50 +329,106 @@
       return true;
     }
 
-    function guardarCarrito() {
+    function guardarCarritoStorage() {
       sessionStorage.setItem('carrito', JSON.stringify(carrito));
     }
 
     function agregarAlCarritoDetalle() {
       if (!validarSeleccion()) return;
-
-      const claveUnica = `${producto.id}-${tallaSeleccionada}`;
+      const claveUnica = `${producto.id}-${tallaSeleccionada.nombre}`;
       const existente = carrito.find(item => item.claveUnica === claveUnica);
 
       if (existente) {
         existente.cantidad += cantidadSeleccionada;
       } else {
         carrito.push({
-          ...producto,
-          talla: tallaSeleccionada,
+          id: producto.id,
+          nombre: producto.nombre,
+          precio: producto.precio,
+          imagenes: producto.imagenes,
+          talla: tallaSeleccionada.nombre,
           cantidad: cantidadSeleccionada,
           claveUnica
         });
       }
-
-      guardarCarrito();
-      alert('Producto añadido al carrito ✓');
+      guardarCarritoStorage();
+      actualizarCarritoUI();
+      toggleCarrito();
     }
 
     function comprarAhora() {
-      if (!validarSeleccion()) return;
-
-      const claveUnica = `${producto.id}-${tallaSeleccionada}`;
-      carrito = carrito.filter(item => item.claveUnica !== claveUnica);
-      carrito.push({
-        ...producto,
-        talla: tallaSeleccionada,
-        cantidad: cantidadSeleccionada,
-        claveUnica
-      });
-      guardarCarrito();
-
-      // Próximamente: redirigir a pedido.html
-      window.location.href = 'index.html';
+      agregarAlCarritoDetalle();
     }
 
-    // ===== ZOOM DE IMAGEN =====
-    document.getElementById('zoomContainer').addEventListener('click', () => {
+    function actualizarCarritoUI() {
+      const contador = document.getElementById('contadorCarrito');
+      const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+      contador.textContent = totalItems;
+
+      const carritoItems = document.getElementById('carritoItems');
+      const carritoVacio = document.getElementById('carritoVacio');
+      const carritoTotal = document.getElementById('carritoTotal');
+
+      if (carrito.length === 0) {
+        carritoItems.innerHTML = '';
+        carritoVacio.classList.remove('hidden');
+        carritoTotal.classList.add('hidden');
+        return;
+      }
+
+      carritoVacio.classList.add('hidden');
+      carritoTotal.classList.remove('hidden');
+
+      let total = 0;
+      carritoItems.innerHTML = carrito.map(item => {
+        total += item.precio * item.cantidad;
+        return `
+          <div class="flex gap-3 items-center bg-zinc-800 rounded-lg p-3">
+            <img src="${item.imagenes[0]}" class="w-16 h-16 object-cover rounded">
+            <div class="flex-1">
+              <p class="text-sm font-medium">${item.nombre}</p>
+              <p class="text-xs text-gray-400">Talla: ${item.talla} · $${item.precio} MXN</p>
+              <div class="flex items-center gap-2 mt-1">
+                <button onclick="cambiarCantidadCarrito('${item.claveUnica}', -1)" class="bg-zinc-700 w-6 h-6 rounded text-sm">-</button>
+                <span class="text-sm">${item.cantidad}</span>
+                <button onclick="cambiarCantidadCarrito('${item.claveUnica}', 1)" class="bg-zinc-700 w-6 h-6 rounded text-sm">+</button>
+              </div>
+            </div>
+            <button onclick="quitarDelCarrito('${item.claveUnica}')" class="text-red-500 text-sm">✕</button>
+          </div>`;
+      }).join('');
+
+      document.getElementById('totalPrecio').textContent = `$${total} MXN`;
+    }
+
+    function cambiarCantidadCarrito(claveUnica, delta) {
+      const item = carrito.find(i => i.claveUnica === claveUnica);
+      if (!item) return;
+      item.cantidad += delta;
+      if (item.cantidad <= 0) {
+        quitarDelCarrito(claveUnica);
+      } else {
+        guardarCarritoStorage();
+        actualizarCarritoUI();
+      }
+    }
+
+    function quitarDelCarrito(claveUnica) {
+      carrito = carrito.filter(item => item.claveUnica !== claveUnica);
+      guardarCarritoStorage();
+      actualizarCarritoUI();
+    }
+
+    function toggleCarrito() {
+      document.getElementById('carritoOverlay').classList.toggle('hidden');
+    }
+
+    function irAPedido() {
+      alert('Página de pedido en construcción');
+    }
+
+    document.getElementById('zoomContainer').addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') return;
       document.getElementById('imgZoom').src = document.getElementById('imgPrincipal').src;
       document.getElementById('modalZoom').classList.remove('hidden');
       document.getElementById('modalZoom').classList.add('flex');
@@ -309,7 +439,6 @@
       document.getElementById('modalZoom').classList.remove('flex');
     }
 
-    // ===== LOGIN (igual que index) =====
     function iniciarSesionGoogle() {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(console.error);
