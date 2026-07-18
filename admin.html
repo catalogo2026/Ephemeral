@@ -135,16 +135,21 @@
       auth.signOut();
     }
 
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('panelAdmin').classList.remove('hidden');
-        cargarListaProductos();
-      } else {
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('panelAdmin').classList.add('hidden');
-      }
-    });
+    const CORREO_ADMIN = "ephemeralpagweb@gmail.com";
+
+auth.onAuthStateChanged(user => {
+  if (user && user.email === CORREO_ADMIN) {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('panelAdmin').classList.remove('hidden');
+    cargarListaProductos();
+  } else if (user && user.email !== CORREO_ADMIN) {
+    // Es una sesión de cliente (Google), no de admin: la cerramos automáticamente
+    auth.signOut();
+  } else {
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('panelAdmin').classList.add('hidden');
+  }
+});
 
     // ===== TALLAS DINÁMICAS =====
     function agregarFilaTalla(nombre = '', stock = '') {
