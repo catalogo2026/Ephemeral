@@ -96,17 +96,46 @@
       </button>
     </li>
   </ul>
+
+  <!-- LOGIN USUARIO (abajo del sidebar desktop) -->
+  <div class="mt-auto pt-4 border-t border-gray-200">
+    <button id="btnLogin" onclick="iniciarSesionGoogle()" class="w-full flex items-center gap-3 px-1 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black whitespace-nowrap">
+      <span class="text-xl">👤</span>
+      <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">Iniciar sesión</span>
+    </button>
+    <div id="usuarioInfo" class="hidden items-center gap-2 px-1 py-2">
+      <img id="fotoUsuario" class="w-8 h-8 rounded-full flex-shrink-0" src="">
+      <div class="whitespace-nowrap overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <p id="nombreUsuario" class="text-xs font-medium text-black truncate"></p>
+        <button onclick="cerrarSesionUsuario()" class="text-xs text-gray-500 hover:underline">Salir</button>
+      </div>
+    </div>
+  </div>
 </aside>
 
 
     <!-- Sidebar móvil (overlay) -->
     <div id="sidebarMovil" class="hidden fixed inset-0 bg-black/70 z-50 md:hidden">
-      <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto">
+      <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto flex flex-col">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-sm font-semibold text-gray-400 uppercase">Categorías</h2>
           <button onclick="toggleMenuMovil()" class="text-white text-xl">✕</button>
         </div>
         <ul id="listaCategoriasMovil" class="space-y-2"></ul>
+
+        <!-- LOGIN USUARIO (abajo del sidebar móvil) -->
+        <div class="mt-auto pt-4 border-t border-zinc-700">
+          <button id="btnLoginMovil" onclick="iniciarSesionGoogle()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
+            👤 Iniciar sesión
+          </button>
+          <div id="usuarioInfoMovil" class="hidden items-center gap-2 px-3 py-2">
+            <img id="fotoUsuarioMovil" class="w-8 h-8 rounded-full flex-shrink-0" src="">
+            <div class="overflow-hidden">
+              <p id="nombreUsuarioMovil" class="text-xs font-medium text-white truncate"></p>
+              <button onclick="cerrarSesionUsuario()" class="text-xs text-gray-400 hover:underline">Salir</button>
+            </div>
+          </div>
+        </div>
       </aside>
     </div>
 
@@ -170,6 +199,7 @@
     let todosLosProductos = [];
     let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
     let categoriaActiva = 'todos';
+    let usuarioActual = null;
 
     async function cargarProductos() {
       try {
@@ -389,6 +419,52 @@ event.target.classList.add('bg-gray-100');
       const url = `https://wa.me/${numero}?text=${mensaje}`;
       window.open(url, "_blank");
     }
+
+    // ===== LOGIN USUARIO (Google) =====
+    function iniciarSesionGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(error => {
+        console.error('Error al iniciar sesión:', error);
+      });
+    }
+
+    function cerrarSesionUsuario() {
+      auth.signOut();
+    }
+
+    auth.onAuthStateChanged(user => {
+      usuarioActual = user;
+
+      const btnLogin = document.getElementById('btnLogin');
+      const usuarioInfo = document.getElementById('usuarioInfo');
+      const fotoUsuario = document.getElementById('fotoUsuario');
+
+      const btnLoginMovil = document.getElementById('btnLoginMovil');
+      const usuarioInfoMovil = document.getElementById('usuarioInfoMovil');
+      const fotoUsuarioMovil = document.getElementById('fotoUsuarioMovil');
+      const nombreUsuarioMovil = document.getElementById('nombreUsuarioMovil');
+
+      if (user) {
+        btnLogin.classList.add('hidden');
+        usuarioInfo.classList.remove('hidden');
+        usuarioInfo.classList.add('flex');
+        fotoUsuario.src = user.photoURL || 'images/Logo.png';
+
+        btnLoginMovil.classList.add('hidden');
+        usuarioInfoMovil.classList.remove('hidden');
+        usuarioInfoMovil.classList.add('flex');
+        fotoUsuarioMovil.src = user.photoURL || 'images/Logo.png';
+        nombreUsuarioMovil.textContent = user.displayName || user.email;
+      } else {
+        btnLogin.classList.remove('hidden');
+        usuarioInfo.classList.add('hidden');
+        usuarioInfo.classList.remove('flex');
+
+        btnLoginMovil.classList.remove('hidden');
+        usuarioInfoMovil.classList.add('hidden');
+        usuarioInfoMovil.classList.remove('flex');
+      }
+    });
 
     document.getElementById('btnMenuMovil').addEventListener('click', toggleMenuMovil);
 
