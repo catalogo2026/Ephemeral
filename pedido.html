@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmar pedido - EPHEMERAL</title>
+  <link rel="icon" type="image/png" href="images/Logo.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
+      authDomain: "ephemeral-93275.firebaseapp.com",
+      projectId: "ephemeral-93275",
+      storageBucket: "ephemeral-93275.firebasestorage.app",
+      messagingSenderId: "834738629296",
+      appId: "1:834738629296:web:4dc2ad46ed8a2142522975"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+</head>
+
+<body class="bg-black text-white min-h-screen flex flex-col">
+
+  <!-- HEADER simple -->
+  <header class="bg-white shadow-md py-4 border-b border-zinc-800 sticky top-0 z-40">
+    <div class="max-w-3xl mx-auto flex items-center justify-between px-4">
+      <a href="index.html" class="text-black text-sm">← Seguir comprando</a>
+      <img src="images/LogoCompleto.png" alt="Logo EPHEMERAL" class="h-10 object-contain">
+      <span class="w-24"></span>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-3xl mx-auto w-full p-4 md:p-8">
+
+    <!-- VISTA: FORMULARIO DE PEDIDO -->
+    <div id="vistaFormulario">
+      <h1 class="text-2xl font-bold mb-6">Confirmar pedido</h1>
+
+      <!-- RESUMEN -->
+      <div class="bg-zinc-900 rounded-2xl p-5 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Resumen de tu pedido</h2>
+        <div id="resumenItems" class="space-y-3 mb-4"></div>
+        <div class="border-t border-zinc-700 pt-3 flex justify-between text-lg font-semibold">
+          <span>Subtotal:</span>
+          <span id="subtotalTexto">$0 MXN</span>
+        </div>
+      </div>
+
+      <!-- DIRECCIONES GUARDADAS (solo si inició sesión) -->
+      <div id="seccionDireccionesGuardadas" class="hidden bg-zinc-900 rounded-2xl p-5 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Tus direcciones guardadas</h2>
+        <div id="listaDirecciones" class="space-y-3 mb-3"></div>
+        <button onclick="mostrarFormularioNuevaDireccion()" class="text-sm text-green-400 hover:underline">
+          + Usar una dirección nueva
+        </button>
+      </div>
+
+      <!-- FORMULARIO DE DIRECCIÓN -->
+      <div id="seccionFormularioDireccion" class="bg-zinc-900 rounded-2xl p-5 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Dirección de envío</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <input id="dNombre" type="text" placeholder="Nombre completo" class="px-4 py-2 rounded-lg text-black">
+          <input id="dTelefono" type="tel" placeholder="Teléfono" class="px-4 py-2 rounded-lg text-black">
+        </div>
+        <input id="dCalle" type="text" placeholder="Calle y número" class="w-full px-4 py-2 rounded-lg text-black mb-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <input id="dColonia" type="text" placeholder="Colonia" class="px-4 py-2 rounded-lg text-black">
+          <input id="dCiudad" type="text" placeholder="Ciudad" class="px-4 py-2 rounded-lg text-black">
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <input id="dEstado" type="text" placeholder="Estado" class="px-4 py-2 rounded-lg text-black">
+          <input id="dCP" type="text" placeholder="Código Postal" class="px-4 py-2 rounded-lg text-black">
+        </div>
+        <textarea id="dReferencias" placeholder="Referencias (opcional)" rows="2" class="w-full px-4 py-2 rounded-lg text-black"></textarea>
+
+        <label id="labelGuardarDireccion" class="hidden flex items-center gap-2 mt-3 text-sm text-gray-400">
+          <input type="checkbox" id="chkGuardarDireccion" checked>
+          Guardar esta dirección para futuras compras
+        </label>
+      </div>
+
+      <p id="errorPedido" class="text-red-500 text-sm mb-4 hidden"></p>
+
+      <button onclick="confirmarPedido()" class="w-full bg-green-500 hover:bg-green-600 transition text-white py-3 rounded-lg font-semibold text-lg">
+        Confirmar pedido
+      </button>
+    </div>
+
+    <!-- VISTA: CONFIRMACIÓN FINAL -->
+    <div id="vistaConfirmacion" class="hidden text-center py-10">
+      <div class="text-5xl mb-4">✅</div>
+      <h1 class="text-2xl font-bold mb-2">¡Pedido registrado!</h1>
+      <p class="text-gray-400 mb-1">Número de pedido:</p>
+      <p id="numeroPedidoTexto" class="text-xl font-bold text-green-400 mb-6"></p>
+      <p class="text-gray-400 mb-6">Confirma tu pedido por WhatsApp para darle seguimiento.</p>
+      <button onclick="abrirWhatsAppFinal()" class="bg-green-500 hover:bg-green-600 transition text-white py-3 px-8 rounded-lg font-semibold text-lg">
+        Confirmar por WhatsApp
+      </button>
+      <div class="mt-6">
+        <a href="index.html" class="text-sm text-gray-400 hover:underline">Volver al catálogo</a>
+      </div>
+    </div>
+
+    <p id="carritoVacioMsg" class="hidden text-center text-gray-500 py-20">
+      Tu carrito está vacío. <a href="index.html" class="text-green-400 hover:underline">Ir al catálogo</a>
+    </p>
+
+  </main>
+
+  <script>
+    let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
+    let usuarioActual = null;
+    let direccionesGuardadas = [];
+    let direccionSeleccionadaId = null;
+    let numeroPedidoGenerado = null;
+    let subtotalCalculado = 0;
+
+    function calcularSubtotal() {
+      return carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+    }
+
+    function renderizarResumen() {
+      if (carrito.length === 0) {
+        document.getElementById('vistaFormulario').classList.add('hidden');
+        document.getElementById('carritoVacioMsg').classList.remove('hidden');
+        return;
+      }
+
+      const resumen = document.getElementById('resumenItems');
+      subtotalCalculado = calcularSubtotal();
+
+      resumen.innerHTML = carrito.map(item => `
+        <div class="flex gap-3 items-center">
+          <img src="${item.imagenes[0]}" class="w-14 h-14 object-cover rounded-lg">
+          <div class="flex-1">
+            <p class="text-sm font-medium">${item.nombre}</p>
+            <p class="text-xs text-gray-400">Talla: ${item.talla || 'Única'} · Cantidad: ${item.cantidad}</p>
+          </div>
+          <p class="text-sm font-semibold">$${item.precio * item.cantidad} MXN</p>
+        </div>
+      `).join('');
+
+      document.getElementById('subtotalTexto').textContent = `$${subtotalCalculado} MXN`;
+    }
+
+    // ===== DIRECCIONES GUARDADAS =====
+    async function cargarDireccionesGuardadas() {
+      if (!usuarioActual) return;
+
+      try {
+        const snapshot = await db.collection('usuarios').doc(usuarioActual.uid)
+          .collection('direcciones').get();
+
+        direccionesGuardadas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (direccionesGuardadas.length > 0) {
+          document.getElementById('seccionDireccionesGuardadas').classList.remove('hidden');
+          document.getElementById('seccionFormularioDireccion').classList.add('hidden');
+          renderizarDireccionesGuardadas();
+        } else {
+          document.getElementById('labelGuardarDireccion').classList.remove('hidden');
+        }
+      } catch (error) {
+        console.error('Error al cargar direcciones:', error);
+      }
+    }
+
+    function renderizarDireccionesGuardadas() {
+      const contenedor = document.getElementById('listaDirecciones');
+      contenedor.innerHTML = direccionesGuardadas.map(d => `
+        <label class="flex items-start gap-3 bg-zinc-800 rounded-lg p-3 cursor-pointer">
+          <input type="radio" name="direccionGuardada" value="${d.id}" onchange="seleccionarDireccionGuardada('${d.id}')" class="mt-1">
+          <div class="text-sm">
+            <p class="font-medium">${d.nombre} · ${d.telefono}</p>
+            <p class="text-gray-400">${d.calle}, ${d.colonia}, ${d.ciudad}, ${d.estado}, CP ${d.cp}</p>
+          </div>
+        </label>
+      `).join('');
+
+      // Selecciona la primera por default
+      if (direccionesGuardadas.length > 0) {
+        seleccionarDireccionGuardada(direccionesGuardadas[0].id);
+        contenedor.querySelector('input[type="radio"]').checked = true;
+      }
+    }
+
+    function seleccionarDireccionGuardada(id) {
+      direccionSeleccionadaId = id;
+    }
+
+    function mostrarFormularioNuevaDireccion() {
+      direccionSeleccionadaId = null;
+      document.getElementById('seccionFormularioDireccion').classList.remove('hidden');
+      document.getElementById('labelGuardarDireccion').classList.remove('hidden');
+      document.querySelectorAll('input[name="direccionGuardada"]').forEach(r => r.checked = false);
+    }
+
+    // ===== CONFIRMAR PEDIDO =====
+    async function confirmarPedido() {
+      const errorEl = document.getElementById('errorPedido');
+      errorEl.classList.add('hidden');
+
+      let datosDireccion;
+
+      if (direccionSeleccionadaId) {
+        datosDireccion = direccionesGuardadas.find(d => d.id === direccionSeleccionadaId);
+      } else {
+        datosDireccion = {
+          nombre: document.getElementById('dNombre').value.trim(),
+          telefono: document.getElementById('dTelefono').value.trim(),
+          calle: document.getElementById('dCalle').value.trim(),
+          colonia: document.getElementById('dColonia').value.trim(),
+          ciudad: document.getElementById('dCiudad').value.trim(),
+          estado: document.getElementById('dEstado').value.trim(),
+          cp: document.getElementById('dCP').value.trim(),
+          referencias: document.getElementById('dReferencias').value.trim()
+        };
+
+        if (!datosDireccion.nombre || !datosDireccion.telefono || !datosDireccion.calle ||
+            !datosDireccion.colonia || !datosDireccion.ciudad || !datosDireccion.estado || !datosDireccion.cp) {
+          errorEl.textContent = 'Completa todos los campos de dirección (referencias es opcional)';
+          errorEl.classList.remove('hidden');
+          window.scrollTo(0, document.getElementById('seccionFormularioDireccion').offsetTop - 20);
+          return;
+        }
+
+        // Guardar dirección si el usuario inició sesión y marcó la casilla
+        if (usuarioActual && document.getElementById('chkGuardarDireccion').checked) {
+          try {
+            await db.collection('usuarios').doc(usuarioActual.uid)
+              .collection('direcciones').add(datosDireccion);
+          } catch (error) {
+            console.error('Error al guardar dirección:', error);
+          }
+        }
+      }
+
+      // Generar número de pedido
+      numeroPedidoGenerado = Math.floor(100000 + Math.random() * 900000);
+
+      const pedido = {
+        numeroPedido: numeroPedidoGenerado,
+        usuarioId: usuarioActual ? usuarioActual.uid : null,
+        usuarioEmail: usuarioActual ? usuarioActual.email : null,
+        productos: carrito.map(item => ({
+          id: item.id,
+          nombre: item.nombre,
+          talla: item.talla || 'Única',
+          cantidad: item.cantidad,
+          precio: item.precio
+        })),
+        direccion: datosDireccion,
+        subtotal: subtotalCalculado,
+        estado: 'pendiente',
+        fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      try {
+        await db.collection('pedidos').add(pedido);
+        sessionStorage.removeItem('carrito');
+        mostrarConfirmacionFinal();
+      } catch (error) {
+        errorEl.textContent = 'Error al guardar el pedido: ' + error.message;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function mostrarConfirmacionFinal() {
+      document.getElementById('vistaFormulario').classList.add('hidden');
+      document.getElementById('vistaConfirmacion').classList.remove('hidden');
+      document.getElementById('numeroPedidoTexto').textContent = `#${numeroPedidoGenerado}`;
+    }
+
+    function abrirWhatsAppFinal() {
+      const numero = "523241014030";
+      const mensaje = `Hola, quiero confirmar mi pedido #${numeroPedidoGenerado} con subtotal: $${subtotalCalculado} MXN`;
+      const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+      window.open(url, "_blank");
+    }
+
+    // ===== AUTH =====
+    auth.onAuthStateChanged(user => {
+      usuarioActual = user;
+      if (user) {
+        cargarDireccionesGuardadas();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', renderizarResumen);
+  </script>
+
+</body>
+</html>
