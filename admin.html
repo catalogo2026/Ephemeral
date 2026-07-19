@@ -59,8 +59,9 @@
         </a>
         <h1 class="text-lg md:text-xl font-bold">Panel Admin - EPHEMERAL</h1>
       </div>
-      <button onclick="cerrarSesion()" class="hidden sm:block bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm">
-        Cerrar sesión
+      <button onclick="togglePanelPedidos()" class="relative bg-zinc-800 text-white px-4 py-2 rounded-lg hover:bg-zinc-700 transition text-sm">
+        📦 Pedidos
+        <span id="contadorPendientes" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
       </button>
     </header>
 
@@ -115,10 +116,42 @@
     </div>
   </div>
 
+  <!-- PANEL LATERAL DE PEDIDOS -->
+  <div id="panelPedidosOverlay" class="hidden fixed inset-0 bg-black/70 z-50">
+    <div class="absolute right-0 top-0 w-full sm:w-[420px] h-full bg-zinc-900 flex flex-col">
+
+      <div class="flex justify-between items-center p-5 border-b border-zinc-700">
+        <h2 class="text-xl font-bold">Pedidos</h2>
+        <button onclick="togglePanelPedidos()" class="text-2xl">✕</button>
+      </div>
+
+      <!-- TABS -->
+      <div class="flex border-b border-zinc-700">
+        <button id="tabPendientes" onclick="cambiarTabPedidos('pendientes')" class="flex-1 py-3 text-sm font-semibold border-b-2 border-green-500">
+          Pendientes
+        </button>
+        <button id="tabHistorial" onclick="cambiarTabPedidos('historial')" class="flex-1 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent">
+          Historial
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4">
+        <div id="listaPedidosPendientes" class="space-y-3"></div>
+        <div id="listaPedidosHistorial" class="hidden space-y-3"></div>
+        <p id="sinPedidosMsg" class="hidden text-center text-gray-500 py-10">No hay pedidos pendientes.</p>
+        <p id="sinHistorialMsg" class="hidden text-center text-gray-500 py-10">Aún no hay ventas confirmadas.</p>
+      </div>
+
+    </div>
+  </div>
+
   <script>
     const IMGBB_API_KEY = "efe873ac64539ab66954ea4ad3f8330a";
+    const CORREO_ADMIN = "ephemeralpagweb@gmail.com";
     let urlsImagenesSubidas = [];
     let todosLosProductosAdmin = [];
+    let pedidosPendientes = [];
+    let pedidosHistorial = [];
 
     // ===== LOGIN =====
     function iniciarSesion() {
@@ -131,21 +164,13 @@
         });
     }
 
-    function cerrarSesion() {
-      auth.signOut();
-    }
-
-    const CORREO_ADMIN = "ephemeralpagweb@gmail.com";
-
     auth.onAuthStateChanged(user => {
       if (user && user.email === CORREO_ADMIN) {
-        // Sesión válida (propia o compartida desde el catálogo): entra directo
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('panelAdmin').classList.remove('hidden');
         cargarListaProductos();
+        cargarPedidos();
       } else {
-        // Cualquier otro caso (sin sesión o sesión de cliente): pide login de admin
-        // Nota: no se cierra la sesión existente, solo se muestra el login para admin
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('panelAdmin').classList.add('hidden');
       }
@@ -298,7 +323,6 @@
       document.getElementById('fDescripcion').value = producto.descripcion || '';
       document.getElementById('fImagenes').value = producto.imagenes.join(',');
 
-      // Cargar tallas existentes (o convertir stock viejo a una fila "Única")
       document.getElementById('contenedorTallas').innerHTML = '';
       if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
         producto.tallas.forEach(t => agregarFilaTalla(t.nombre, t.stock));
@@ -337,8 +361,200 @@
       agregarFilaTalla();
     }
 
-    // Fila de talla inicial al cargar la página
     agregarFilaTalla();
+
+    // ===== PANEL DE PEDIDOS =====
+    function togglePanelPedidos() {
+      document.getElementById('panelPedidosOverlay').classList.toggle('hidden');
+      cargarPedidos();
+    }
+
+    function cambiarTabPedidos(tab) {
+      const tabPendientes = document.getElementById('tabPendientes');
+      const tabHistorial = document.getElementById('tabHistorial');
+      const listaPendientes = document.getElementById('listaPedidosPendientes');
+      const listaHistorial = document.getElementById('listaPedidosHistorial');
+
+      if (tab === 'pendientes') {
+        tabPendientes.classList.add('border-green-500');
+        tabPendientes.classList.remove('text-gray-500', 'border-transparent');
+        tabHistorial.classList.remove('border-green-500');
+        tabHistorial.classList.add('text-gray-500', 'border-transparent');
+        listaPendientes.classList.remove('hidden');
+        listaHistorial.classList.add('hidden');
+      } else {
+        tabHistorial.classList.add('border-green-500');
+        tabHistorial.classList.remove('text-gray-500', 'border-transparent');
+        tabPendientes.classList.remove('border-green-500');
+        tabPendientes.classList.add('text-gray-500', 'border-transparent');
+        listaHistorial.classList.remove('hidden');
+        listaPendientes.classList.add('hidden');
+      }
+    }
+
+    async function cargarPedidos() {
+      try {
+        const snapshotPendientes = await db.collection('pedidos').where('estado', '==', 'pendiente').get();
+        pedidosPendientes = snapshotPendientes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        pedidosPendientes.sort((a, b) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
+
+        const snapshotHistorial = await db.collection('pedidos').where('estado', '==', 'confirmado').get();
+        pedidosHistorial = snapshotHistorial.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        pedidosHistorial.sort((a, b) => (b.fechaConfirmacion?.seconds || 0) - (a.fechaConfirmacion?.seconds || 0));
+
+        renderizarPedidosPendientes();
+        renderizarHistorial();
+        actualizarContadorPendientes();
+      } catch (error) {
+        console.error('Error al cargar pedidos:', error);
+      }
+    }
+
+    function actualizarContadorPendientes() {
+      const contador = document.getElementById('contadorPendientes');
+      if (pedidosPendientes.length > 0) {
+        contador.textContent = pedidosPendientes.length;
+        contador.classList.remove('hidden');
+      } else {
+        contador.classList.add('hidden');
+      }
+    }
+
+    function formatearFecha(timestamp) {
+      if (!timestamp) return '—';
+      const fecha = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
+      return fecha.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderizarPedidosPendientes() {
+      const contenedor = document.getElementById('listaPedidosPendientes');
+      const sinPedidosMsg = document.getElementById('sinPedidosMsg');
+
+      if (pedidosPendientes.length === 0) {
+        contenedor.innerHTML = '';
+        sinPedidosMsg.classList.remove('hidden');
+        return;
+      }
+      sinPedidosMsg.classList.add('hidden');
+
+      contenedor.innerHTML = pedidosPendientes.map(p => `
+        <div class="bg-zinc-800 rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <p class="font-semibold text-sm">Pedido #${p.numeroPedido}</p>
+            <p class="text-xs text-gray-400">${formatearFecha(p.fechaCreacion)}</p>
+          </div>
+          <p class="text-xs text-gray-400 mb-2">${p.direccion?.nombre || 'Sin nombre'} · ${p.direccion?.telefono || ''}</p>
+          <div class="text-xs text-gray-300 mb-2 space-y-1">
+            ${p.productos.map(prod => `<p>• ${prod.nombre} (${prod.talla}) x${prod.cantidad}</p>`).join('')}
+          </div>
+          <p class="text-sm font-semibold mb-3">Subtotal: $${p.subtotal} MXN</p>
+          <button onclick="confirmarVenta('${p.id}')" class="w-full bg-green-500 hover:bg-green-600 transition text-white py-2 rounded-lg text-sm font-semibold">
+            Confirmar venta
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function renderizarHistorial() {
+      const contenedor = document.getElementById('listaPedidosHistorial');
+      const sinHistorialMsg = document.getElementById('sinHistorialMsg');
+
+      if (pedidosHistorial.length === 0) {
+        contenedor.innerHTML = '';
+        sinHistorialMsg.classList.remove('hidden');
+        return;
+      }
+      sinHistorialMsg.classList.add('hidden');
+
+      contenedor.innerHTML = pedidosHistorial.map(p => `
+        <div class="bg-zinc-800 rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <p class="font-semibold text-sm">Pedido #${p.numeroPedido}</p>
+            <p class="text-xs text-green-400">✓ Confirmado</p>
+          </div>
+          <p class="text-xs text-gray-400 mb-1">${p.direccion?.nombre || 'Sin nombre'}</p>
+          <p class="text-xs text-gray-500 mb-2">Vendido: ${formatearFecha(p.fechaConfirmacion)}</p>
+          <p class="text-sm font-semibold mb-3">$${p.subtotal} MXN</p>
+          <button onclick="deshacerConfirmacion('${p.id}')" class="w-full bg-zinc-700 hover:bg-zinc-600 transition text-white py-2 rounded-lg text-xs">
+            Deshacer confirmación
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function confirmarVenta(pedidoId) {
+      if (!confirm('¿Confirmar esta venta? Se descontará el stock correspondiente.')) return;
+
+      const pedido = pedidosPendientes.find(p => p.id === pedidoId);
+      if (!pedido) return;
+
+      try {
+        // Descontar stock por cada producto/talla del pedido
+        for (const item of pedido.productos) {
+          const productoRef = db.collection('productos').doc(item.id);
+          const productoDoc = await productoRef.get();
+          if (!productoDoc.exists) continue;
+
+          const productoData = productoDoc.data();
+          if (productoData.tallas && productoData.tallas.length > 0 && typeof productoData.tallas[0] === 'object') {
+            const nuevasTallas = productoData.tallas.map(t => {
+              if (t.nombre === item.talla) {
+                return { nombre: t.nombre, stock: Math.max(0, t.stock - item.cantidad) };
+              }
+              return t;
+            });
+            await productoRef.update({ tallas: nuevasTallas });
+          }
+        }
+
+        await db.collection('pedidos').doc(pedidoId).update({
+          estado: 'confirmado',
+          fechaConfirmacion: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        await cargarPedidos();
+        await cargarListaProductos();
+      } catch (error) {
+        alert('Error al confirmar venta: ' + error.message);
+      }
+    }
+
+    async function deshacerConfirmacion(pedidoId) {
+      if (!confirm('¿Deshacer esta confirmación? El stock se repondrá y el pedido volverá a pendiente.')) return;
+
+      const pedido = pedidosHistorial.find(p => p.id === pedidoId);
+      if (!pedido) return;
+
+      try {
+        // Reponer stock
+        for (const item of pedido.productos) {
+          const productoRef = db.collection('productos').doc(item.id);
+          const productoDoc = await productoRef.get();
+          if (!productoDoc.exists) continue;
+
+          const productoData = productoDoc.data();
+          if (productoData.tallas && productoData.tallas.length > 0 && typeof productoData.tallas[0] === 'object') {
+            const nuevasTallas = productoData.tallas.map(t => {
+              if (t.nombre === item.talla) {
+                return { nombre: t.nombre, stock: t.stock + item.cantidad };
+              }
+              return t;
+            });
+            await productoRef.update({ tallas: nuevasTallas });
+          }
+        }
+
+        await db.collection('pedidos').doc(pedidoId).update({
+          estado: 'pendiente',
+          fechaConfirmacion: firebase.firestore.FieldValue.delete()
+        });
+
+        await cargarPedidos();
+        await cargarListaProductos();
+      } catch (error) {
+        alert('Error al deshacer: ' + error.message);
+      }
+    }
   </script>
 
 </body>
