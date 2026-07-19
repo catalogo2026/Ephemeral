@@ -60,7 +60,7 @@
                placeholder="Buscar..."
                class="hidden sm:block border border-gray-300 rounded-lg px-3 py-2 text-black text-sm w-32 md:w-56 focus:outline-none focus:ring-2 focus:ring-black"
                oninput="filtrarProductos()">
-<a href="admin.html" class="text-black text-xl" title="Panel Admin">⚙️</a>
+<a href="admin.html" id="linkAdmin" class="hidden text-black text-xl" title="Panel Admin">⚙️</a>
         <button onclick="toggleCarrito()" class="relative text-black text-2xl">
           🛒
           <span id="contadorCarrito" class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
@@ -141,7 +141,7 @@
 
     <!-- CONTENIDO PRINCIPAL -->
     <main class="flex-1 p-6">
-<div id="productos-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+      <div id="productos-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
       <p id="sinResultados" class="hidden text-center text-gray-500 mt-10">No se encontraron productos.</p>
     </main>
 
@@ -277,25 +277,36 @@ event.target.classList.add('bg-gray-100');
       }
       sinResultados.classList.add('hidden');
 
-      
       productos.forEach(producto => {
-  const productoHTML = `
-    <div class="bg-zinc-900 rounded-xl shadow-lg p-3 hover:scale-105 transition duration-300 cursor-pointer" onclick="window.location.href='producto.html?id=${producto.id}'">
-      <img src="${producto.imagenes[0]}"
-           alt="${producto.nombre}"
-           loading="lazy"
-           class="rounded-lg mb-3 w-full h-[220px] object-cover">
+        const productoHTML = `
+          <div class="bg-zinc-900 rounded-2xl shadow-lg p-4 hover:scale-105 transition duration-300">
+            <img id="principal${producto.id}"
+                 src="${producto.imagenes[0]}"
+                 alt="${producto.nombre}"
+                 loading="lazy"
+                 class="rounded-xl mb-4 w-full h-[300px] object-cover transition duration-300">
 
-      <h3 class="text-base font-semibold truncate">${producto.nombre}</h3>
-      <p class="text-gray-400 text-sm mb-2">$${producto.precio} MXN</p>
+            <div class="flex gap-3 mb-4 justify-center">
+              ${producto.imagenes.map((img, index) => `
+                <img src="${img}"
+                     alt="Vista ${index + 1}"
+                     loading="lazy"
+                     class="h-14 w-14 object-cover rounded cursor-pointer border border-gray-600 hover:border-white transition"
+                     onclick="cambiarImagen('principal${producto.id}', '${img}')">
+              `).join('')}
+            </div>
 
-      <button class="w-full bg-green-500 hover:bg-green-600 transition text-white px-4 py-2 rounded-lg text-sm font-semibold">
-        Compra ya
-      </button>
-    </div>`;
-  container.innerHTML += productoHTML;
-});
+            <h3 class="text-lg font-semibold">${producto.nombre}</h3>
+            <p class="text-gray-400 mb-1">$${producto.precio} MXN</p>
+            <p class="text-xs text-gray-500 mb-3">Stock: ${producto.stock}</p>
 
+            <button onclick='agregarAlCarrito(${JSON.stringify(producto)})'
+                    class="w-full bg-green-500 hover:bg-green-600 transition text-white px-4 py-2 rounded-lg">
+              Añadir al carrito
+            </button>
+          </div>`;
+        container.innerHTML += productoHTML;
+      });
     }
 
     function cambiarImagen(id, nuevaSrc) {
@@ -423,6 +434,13 @@ event.target.classList.add('bg-gray-100');
 
     auth.onAuthStateChanged(user => {
       usuarioActual = user;
+
+      const linkAdmin = document.getElementById('linkAdmin');
+      if (user && user.email === 'ephemeralpagweb@gmail.com') {
+        linkAdmin.classList.remove('hidden');
+      } else {
+        linkAdmin.classList.add('hidden');
+      }
 
       const btnLogin = document.getElementById('btnLogin');
       const usuarioInfo = document.getElementById('usuarioInfo');

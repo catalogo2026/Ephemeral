@@ -46,7 +46,7 @@
         </a>
       </div>
       <div class="flex items-center gap-3">
-        <a href="admin.html" class="text-black text-xl" title="Panel Admin">⚙️</a>
+        <a href="admin.html" id="linkAdmin" class="hidden text-black text-xl" title="Panel Admin">⚙️</a>
         <button onclick="toggleCarrito()" class="relative text-black text-2xl">
           🛒
           <span id="contadorCarrito" class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
@@ -449,6 +449,13 @@
     }
 
     auth.onAuthStateChanged(user => {
+      const linkAdmin = document.getElementById('linkAdmin');
+      if (user && user.email === 'ephemeralpagweb@gmail.com') {
+        linkAdmin.classList.remove('hidden');
+      } else {
+        linkAdmin.classList.add('hidden');
+      }
+
       const btnLogin = document.getElementById('btnLogin');
       const usuarioInfo = document.getElementById('usuarioInfo');
       const fotoUsuario = document.getElementById('fotoUsuario');
