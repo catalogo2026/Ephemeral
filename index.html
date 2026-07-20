@@ -103,11 +103,11 @@
       <span class="text-xl">👤</span>
       <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">Iniciar sesión</span>
     </button>
-    <div id="usuarioInfo" class="hidden items-center gap-2 px-1 py-2">
+    <div id="usuarioInfo" class="hidden items-center gap-2 px-1 py-2 cursor-pointer" onclick="abrirMiCuenta()">
       <img id="fotoUsuario" class="w-8 h-8 rounded-full flex-shrink-0" src="">
       <div class="whitespace-nowrap overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <p id="nombreUsuario" class="text-xs font-medium text-black truncate"></p>
-        <button onclick="cerrarSesionUsuario()" class="text-xs text-gray-500 hover:underline">Salir</button>
+        <span class="text-xs text-gray-500 hover:underline">Mi cuenta</span>
       </div>
     </div>
   </div>
@@ -128,11 +128,11 @@
           <button id="btnLoginMovil" onclick="iniciarSesionGoogle()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
             👤 Iniciar sesión
           </button>
-          <div id="usuarioInfoMovil" class="hidden items-center gap-2 px-3 py-2">
+          <div id="usuarioInfoMovil" class="hidden items-center gap-2 px-3 py-2 cursor-pointer" onclick="abrirMiCuenta()">
             <img id="fotoUsuarioMovil" class="w-8 h-8 rounded-full flex-shrink-0" src="">
             <div class="overflow-hidden">
               <p id="nombreUsuarioMovil" class="text-xs font-medium text-white truncate"></p>
-              <button onclick="cerrarSesionUsuario()" class="text-xs text-gray-400 hover:underline">Salir</button>
+              <span class="text-xs text-gray-400 hover:underline">Mi cuenta</span>
             </div>
           </div>
         </div>
@@ -194,6 +194,66 @@
     </div>
   </div>
 </footer>
+
+  <!-- MODAL MI CUENTA -->
+  <div id="modalMiCuenta" class="hidden fixed inset-0 bg-black/80 z-[60] items-center justify-center p-4">
+    <div class="bg-zinc-900 rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="text-lg font-bold">Mi cuenta</h2>
+        <button onclick="cerrarMiCuenta()" class="text-2xl">✕</button>
+      </div>
+
+      <div class="mb-5">
+        <label class="block text-sm text-gray-400 mb-2">Nombre para mostrar</label>
+        <div class="flex gap-2">
+          <input id="inputNombreCuenta" type="text" class="flex-1 px-3 py-2 rounded-lg text-black text-sm">
+          <button onclick="guardarNombreCuenta()" class="bg-green-500 hover:bg-green-600 transition px-4 py-2 rounded-lg text-sm">
+            Guardar
+          </button>
+        </div>
+        <p id="mensajeNombreGuardado" class="hidden text-xs text-green-400 mt-1">Nombre actualizado ✓</p>
+      </div>
+
+      <div class="mb-5">
+        <div class="flex justify-between items-center mb-2">
+          <label class="block text-sm text-gray-400">Mis direcciones guardadas</label>
+          <button onclick="mostrarFormNuevaDireccionCuenta()" class="text-xs text-green-400 hover:underline">+ Nueva</button>
+        </div>
+        <div id="listaDireccionesCuenta" class="space-y-2"></div>
+        <p id="sinDireccionesCuenta" class="hidden text-xs text-gray-500 py-3">No tienes direcciones guardadas.</p>
+      </div>
+
+      <div id="formDireccionCuenta" class="hidden bg-zinc-800 rounded-lg p-4 mb-5">
+        <input type="hidden" id="direccionCuentaId">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+          <input id="cNombre" type="text" placeholder="Nombre completo" class="px-3 py-2 rounded-lg text-black text-sm">
+          <input id="cTelefono" type="tel" placeholder="Teléfono" class="px-3 py-2 rounded-lg text-black text-sm">
+        </div>
+        <input id="cCalle" type="text" placeholder="Calle y número" class="w-full px-3 py-2 rounded-lg text-black text-sm mb-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+          <input id="cColonia" type="text" placeholder="Colonia" class="px-3 py-2 rounded-lg text-black text-sm">
+          <input id="cCiudad" type="text" placeholder="Ciudad" class="px-3 py-2 rounded-lg text-black text-sm">
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+          <input id="cEstado" type="text" placeholder="Estado" class="px-3 py-2 rounded-lg text-black text-sm">
+          <input id="cCP" type="text" placeholder="Código Postal" class="px-3 py-2 rounded-lg text-black text-sm">
+        </div>
+        <textarea id="cReferencias" placeholder="Referencias (opcional)" rows="2" class="w-full px-3 py-2 rounded-lg text-black text-sm mb-3"></textarea>
+        <div class="flex gap-2">
+          <button onclick="guardarDireccionCuenta()" class="flex-1 bg-green-500 hover:bg-green-600 transition py-2 rounded-lg text-sm font-semibold">
+            Guardar dirección
+          </button>
+          <button onclick="cancelarFormDireccionCuenta()" class="flex-1 bg-zinc-700 hover:bg-zinc-600 transition py-2 rounded-lg text-sm">
+            Cancelar
+          </button>
+        </div>
+      </div>
+
+      <button onclick="cerrarSesionUsuario()" class="w-full bg-red-500 hover:bg-red-600 transition text-white py-2 rounded-lg text-sm font-semibold">
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
 
   <script>
     let todosLosProductos = [];
@@ -445,6 +505,143 @@ event.target.classList.add('bg-gray-100');
     });
 
     document.getElementById('btnMenuMovil').addEventListener('click', toggleMenuMovil);
+
+    // ===== MI CUENTA =====
+    let direccionesCuenta = [];
+
+    async function abrirMiCuenta() {
+      if (!usuarioActual) return;
+      document.getElementById('modalMiCuenta').classList.remove('hidden');
+      document.getElementById('modalMiCuenta').classList.add('flex');
+
+      document.getElementById('inputNombreCuenta').value = usuarioActual.displayName || '';
+      document.getElementById('mensajeNombreGuardado').classList.add('hidden');
+      cancelarFormDireccionCuenta();
+      await cargarDireccionesCuenta();
+    }
+
+    function cerrarMiCuenta() {
+      document.getElementById('modalMiCuenta').classList.add('hidden');
+      document.getElementById('modalMiCuenta').classList.remove('flex');
+    }
+
+    async function guardarNombreCuenta() {
+      const nuevoNombre = document.getElementById('inputNombreCuenta').value.trim();
+      if (!nuevoNombre) return;
+      try {
+        await usuarioActual.updateProfile({ displayName: nuevoNombre });
+        document.getElementById('nombreUsuarioMovil').textContent = nuevoNombre;
+        document.getElementById('mensajeNombreGuardado').classList.remove('hidden');
+      } catch (error) {
+        alert('Error al actualizar nombre: ' + error.message);
+      }
+    }
+
+    async function cargarDireccionesCuenta() {
+      try {
+        const snapshot = await db.collection('usuarios').doc(usuarioActual.uid)
+          .collection('direcciones').get();
+        direccionesCuenta = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderizarDireccionesCuenta();
+      } catch (error) {
+        console.error('Error al cargar direcciones:', error);
+      }
+    }
+
+    function renderizarDireccionesCuenta() {
+      const contenedor = document.getElementById('listaDireccionesCuenta');
+      const sinDirecciones = document.getElementById('sinDireccionesCuenta');
+
+      if (direccionesCuenta.length === 0) {
+        contenedor.innerHTML = '';
+        sinDirecciones.classList.remove('hidden');
+        return;
+      }
+      sinDirecciones.classList.add('hidden');
+
+      contenedor.innerHTML = direccionesCuenta.map(d => `
+        <div class="bg-zinc-800 rounded-lg p-3 text-sm">
+          <p class="font-medium">${d.nombre} · ${d.telefono}</p>
+          <p class="text-gray-400 text-xs">${d.calle}, ${d.colonia}, ${d.ciudad}, ${d.estado}, CP ${d.cp}</p>
+          <div class="flex gap-3 mt-2">
+            <button onclick='editarDireccionCuenta(${JSON.stringify(d)})' class="text-xs text-blue-400 hover:underline">Editar</button>
+            <button onclick="eliminarDireccionCuenta('${d.id}')" class="text-xs text-red-400 hover:underline">Eliminar</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function mostrarFormNuevaDireccionCuenta() {
+      document.getElementById('direccionCuentaId').value = '';
+      document.getElementById('cNombre').value = '';
+      document.getElementById('cTelefono').value = '';
+      document.getElementById('cCalle').value = '';
+      document.getElementById('cColonia').value = '';
+      document.getElementById('cCiudad').value = '';
+      document.getElementById('cEstado').value = '';
+      document.getElementById('cCP').value = '';
+      document.getElementById('cReferencias').value = '';
+      document.getElementById('formDireccionCuenta').classList.remove('hidden');
+    }
+
+    function editarDireccionCuenta(d) {
+      document.getElementById('direccionCuentaId').value = d.id;
+      document.getElementById('cNombre').value = d.nombre;
+      document.getElementById('cTelefono').value = d.telefono;
+      document.getElementById('cCalle').value = d.calle;
+      document.getElementById('cColonia').value = d.colonia;
+      document.getElementById('cCiudad').value = d.ciudad;
+      document.getElementById('cEstado').value = d.estado;
+      document.getElementById('cCP').value = d.cp;
+      document.getElementById('cReferencias').value = d.referencias || '';
+      document.getElementById('formDireccionCuenta').classList.remove('hidden');
+    }
+
+    function cancelarFormDireccionCuenta() {
+      document.getElementById('formDireccionCuenta').classList.add('hidden');
+    }
+
+    async function guardarDireccionCuenta() {
+      const id = document.getElementById('direccionCuentaId').value;
+      const direccion = {
+        nombre: document.getElementById('cNombre').value.trim(),
+        telefono: document.getElementById('cTelefono').value.trim(),
+        calle: document.getElementById('cCalle').value.trim(),
+        colonia: document.getElementById('cColonia').value.trim(),
+        ciudad: document.getElementById('cCiudad').value.trim(),
+        estado: document.getElementById('cEstado').value.trim(),
+        cp: document.getElementById('cCP').value.trim(),
+        referencias: document.getElementById('cReferencias').value.trim()
+      };
+
+      if (!direccion.nombre || !direccion.telefono || !direccion.calle || !direccion.colonia || !direccion.ciudad || !direccion.estado || !direccion.cp) {
+        alert('Completa todos los campos (referencias es opcional)');
+        return;
+      }
+
+      try {
+        const ref = db.collection('usuarios').doc(usuarioActual.uid).collection('direcciones');
+        if (id) {
+          await ref.doc(id).update(direccion);
+        } else {
+          await ref.add(direccion);
+        }
+        cancelarFormDireccionCuenta();
+        await cargarDireccionesCuenta();
+      } catch (error) {
+        alert('Error al guardar dirección: ' + error.message);
+      }
+    }
+
+    async function eliminarDireccionCuenta(id) {
+      if (!confirm('¿Eliminar esta dirección?')) return;
+      try {
+        await db.collection('usuarios').doc(usuarioActual.uid).collection('direcciones').doc(id).delete();
+        await cargarDireccionesCuenta();
+      } catch (error) {
+        alert('Error al eliminar: ' + error.message);
+      }
+    }
 
     window.addEventListener('DOMContentLoaded', cargarProductos);
   </script>

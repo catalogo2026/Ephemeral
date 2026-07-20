@@ -125,23 +125,46 @@
         <button onclick="togglePanelPedidos()" class="text-2xl">✕</button>
       </div>
 
+      <!-- BUSCADOR -->
+      <div class="p-4 border-b border-zinc-700">
+        <input id="buscadorPedidos" type="text" placeholder="Buscar por nombre, # pedido o fecha (ej: 19 jul)"
+               class="w-full px-4 py-2 rounded-lg text-black text-sm"
+               oninput="filtrarPedidos()">
+      </div>
+
       <!-- TABS -->
       <div class="flex border-b border-zinc-700">
-        <button id="tabPendientes" onclick="cambiarTabPedidos('pendientes')" class="flex-1 py-3 text-sm font-semibold border-b-2 border-green-500">
+        <button id="tabPendientes" onclick="cambiarTabPedidos('pendientes')" class="flex-1 py-3 text-xs sm:text-sm font-semibold border-b-2 border-green-500">
           Pendientes
         </button>
-        <button id="tabHistorial" onclick="cambiarTabPedidos('historial')" class="flex-1 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent">
+        <button id="tabHistorial" onclick="cambiarTabPedidos('historial')" class="flex-1 py-3 text-xs sm:text-sm font-semibold text-gray-500 border-b-2 border-transparent">
           Historial
+        </button>
+        <button id="tabCancelados" onclick="cambiarTabPedidos('cancelados')" class="flex-1 py-3 text-xs sm:text-sm font-semibold text-gray-500 border-b-2 border-transparent">
+          Cancelados
         </button>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4">
         <div id="listaPedidosPendientes" class="space-y-3"></div>
         <div id="listaPedidosHistorial" class="hidden space-y-3"></div>
+        <div id="listaPedidosCancelados" class="hidden space-y-3"></div>
         <p id="sinPedidosMsg" class="hidden text-center text-gray-500 py-10">No hay pedidos pendientes.</p>
         <p id="sinHistorialMsg" class="hidden text-center text-gray-500 py-10">Aún no hay ventas confirmadas.</p>
+        <p id="sinCanceladosMsg" class="hidden text-center text-gray-500 py-10">No hay pedidos cancelados.</p>
       </div>
 
+    </div>
+  </div>
+
+  <!-- MODAL DETALLES DE PEDIDO -->
+  <div id="modalDetallePedido" class="hidden fixed inset-0 bg-black/80 z-[60] items-center justify-center p-4">
+    <div class="bg-zinc-900 rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Detalle del pedido</h2>
+        <button onclick="cerrarModalDetalle()" class="text-2xl">✕</button>
+      </div>
+      <div id="contenidoDetallePedido"></div>
     </div>
   </div>
 
@@ -152,6 +175,8 @@
     let todosLosProductosAdmin = [];
     let pedidosPendientes = [];
     let pedidosHistorial = [];
+    let pedidosCancelados = [];
+    let tabActiva = 'pendientes';
 
     // ===== LOGIN =====
     function iniciarSesion() {
@@ -370,26 +395,49 @@
     }
 
     function cambiarTabPedidos(tab) {
-      const tabPendientes = document.getElementById('tabPendientes');
-      const tabHistorial = document.getElementById('tabHistorial');
-      const listaPendientes = document.getElementById('listaPedidosPendientes');
-      const listaHistorial = document.getElementById('listaPedidosHistorial');
+      tabActiva = tab;
 
-      if (tab === 'pendientes') {
-        tabPendientes.classList.add('border-green-500');
-        tabPendientes.classList.remove('text-gray-500', 'border-transparent');
-        tabHistorial.classList.remove('border-green-500');
-        tabHistorial.classList.add('text-gray-500', 'border-transparent');
-        listaPendientes.classList.remove('hidden');
-        listaHistorial.classList.add('hidden');
-      } else {
-        tabHistorial.classList.add('border-green-500');
-        tabHistorial.classList.remove('text-gray-500', 'border-transparent');
-        tabPendientes.classList.remove('border-green-500');
-        tabPendientes.classList.add('text-gray-500', 'border-transparent');
-        listaHistorial.classList.remove('hidden');
-        listaPendientes.classList.add('hidden');
-      }
+      const tabs = {
+        pendientes: document.getElementById('tabPendientes'),
+        historial: document.getElementById('tabHistorial'),
+        cancelados: document.getElementById('tabCancelados')
+      };
+      const listas = {
+        pendientes: document.getElementById('listaPedidosPendientes'),
+        historial: document.getElementById('listaPedidosHistorial'),
+        cancelados: document.getElementById('listaPedidosCancelados')
+      };
+
+      Object.keys(tabs).forEach(key => {
+        if (key === tab) {
+          tabs[key].classList.add('border-green-500');
+          tabs[key].classList.remove('text-gray-500', 'border-transparent');
+          listas[key].classList.remove('hidden');
+        } else {
+          tabs[key].classList.remove('border-green-500');
+          tabs[key].classList.add('text-gray-500', 'border-transparent');
+          listas[key].classList.add('hidden');
+        }
+      });
+
+      filtrarPedidos();
+    }
+
+    function filtrarPedidos() {
+      const texto = document.getElementById('buscadorPedidos').value.toLowerCase().trim();
+
+      const coincide = (p) => {
+        if (!texto) return true;
+        const numero = String(p.numeroPedido).toLowerCase();
+        const nombre = (p.direccion?.nombre || '').toLowerCase();
+        const fechaTexto = formatearFecha(p.fechaCreacion).toLowerCase();
+        const fechaConfTexto = p.fechaConfirmacion ? formatearFecha(p.fechaConfirmacion).toLowerCase() : '';
+        return numero.includes(texto) || nombre.includes(texto) || fechaTexto.includes(texto) || fechaConfTexto.includes(texto);
+      };
+
+      renderizarPedidosPendientes(pedidosPendientes.filter(coincide));
+      renderizarHistorial(pedidosHistorial.filter(coincide));
+      renderizarCancelados(pedidosCancelados.filter(coincide));
     }
 
     async function cargarPedidos() {
@@ -402,8 +450,11 @@
         pedidosHistorial = snapshotHistorial.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         pedidosHistorial.sort((a, b) => (b.fechaConfirmacion?.seconds || 0) - (a.fechaConfirmacion?.seconds || 0));
 
-        renderizarPedidosPendientes();
-        renderizarHistorial();
+        const snapshotCancelados = await db.collection('pedidos').where('estado', '==', 'cancelado').get();
+        pedidosCancelados = snapshotCancelados.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        pedidosCancelados.sort((a, b) => (b.fechaCancelacion?.seconds || 0) - (a.fechaCancelacion?.seconds || 0));
+
+        filtrarPedidos();
         actualizarContadorPendientes();
       } catch (error) {
         console.error('Error al cargar pedidos:', error);
@@ -426,18 +477,18 @@
       return fecha.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     }
 
-    function renderizarPedidosPendientes() {
+    function renderizarPedidosPendientes(lista = pedidosPendientes) {
       const contenedor = document.getElementById('listaPedidosPendientes');
       const sinPedidosMsg = document.getElementById('sinPedidosMsg');
 
-      if (pedidosPendientes.length === 0) {
+      if (lista.length === 0) {
         contenedor.innerHTML = '';
         sinPedidosMsg.classList.remove('hidden');
         return;
       }
       sinPedidosMsg.classList.add('hidden');
 
-      contenedor.innerHTML = pedidosPendientes.map(p => `
+      contenedor.innerHTML = lista.map(p => `
         <div class="bg-zinc-800 rounded-xl p-4">
           <div class="flex justify-between items-start mb-2">
             <p class="font-semibold text-sm">Pedido #${p.numeroPedido}</p>
@@ -448,25 +499,33 @@
             ${p.productos.map(prod => `<p>• ${prod.nombre} (${prod.talla}) x${prod.cantidad}</p>`).join('')}
           </div>
           <p class="text-sm font-semibold mb-3">Subtotal: $${p.subtotal} MXN</p>
-          <button onclick="confirmarVenta('${p.id}')" class="w-full bg-green-500 hover:bg-green-600 transition text-white py-2 rounded-lg text-sm font-semibold">
-            Confirmar venta
-          </button>
+          <div class="flex gap-2">
+            <button onclick='verDetallePedido(${JSON.stringify(p)})' class="bg-blue-500 hover:bg-blue-600 transition text-white py-2 px-3 rounded-lg text-xs">
+              Ver
+            </button>
+            <button onclick="confirmarVenta('${p.id}')" class="flex-1 bg-green-500 hover:bg-green-600 transition text-white py-2 rounded-lg text-sm font-semibold">
+              Confirmar venta
+            </button>
+            <button onclick="cancelarPedido('${p.id}')" class="flex-1 bg-red-500 hover:bg-red-600 transition text-white py-2 rounded-lg text-sm font-semibold">
+              Cancelar
+            </button>
+          </div>
         </div>
       `).join('');
     }
 
-    function renderizarHistorial() {
+    function renderizarHistorial(lista = pedidosHistorial) {
       const contenedor = document.getElementById('listaPedidosHistorial');
       const sinHistorialMsg = document.getElementById('sinHistorialMsg');
 
-      if (pedidosHistorial.length === 0) {
+      if (lista.length === 0) {
         contenedor.innerHTML = '';
         sinHistorialMsg.classList.remove('hidden');
         return;
       }
       sinHistorialMsg.classList.add('hidden');
 
-      contenedor.innerHTML = pedidosHistorial.map(p => `
+      contenedor.innerHTML = lista.map(p => `
         <div class="bg-zinc-800 rounded-xl p-4">
           <div class="flex justify-between items-start mb-2">
             <p class="font-semibold text-sm">Pedido #${p.numeroPedido}</p>
@@ -475,9 +534,14 @@
           <p class="text-xs text-gray-400 mb-1">${p.direccion?.nombre || 'Sin nombre'}</p>
           <p class="text-xs text-gray-500 mb-2">Vendido: ${formatearFecha(p.fechaConfirmacion)}</p>
           <p class="text-sm font-semibold mb-3">$${p.subtotal} MXN</p>
-          <button onclick="deshacerConfirmacion('${p.id}')" class="w-full bg-zinc-700 hover:bg-zinc-600 transition text-white py-2 rounded-lg text-xs">
-            Deshacer confirmación
-          </button>
+          <div class="flex gap-2">
+            <button onclick='verDetallePedido(${JSON.stringify(p)})' class="flex-1 bg-blue-500 hover:bg-blue-600 transition text-white py-2 rounded-lg text-xs">
+              Ver detalles
+            </button>
+            <button onclick="deshacerConfirmacion('${p.id}')" class="flex-1 bg-zinc-700 hover:bg-zinc-600 transition text-white py-2 rounded-lg text-xs">
+              Deshacer
+            </button>
+          </div>
         </div>
       `).join('');
     }
@@ -554,6 +618,92 @@
       } catch (error) {
         alert('Error al deshacer: ' + error.message);
       }
+    }
+
+    function renderizarCancelados(lista = pedidosCancelados) {
+      const contenedor = document.getElementById('listaPedidosCancelados');
+      const sinCanceladosMsg = document.getElementById('sinCanceladosMsg');
+
+      if (lista.length === 0) {
+        contenedor.innerHTML = '';
+        sinCanceladosMsg.classList.remove('hidden');
+        return;
+      }
+      sinCanceladosMsg.classList.add('hidden');
+
+      contenedor.innerHTML = lista.map(p => `
+        <div class="bg-zinc-800 rounded-xl p-4 opacity-70">
+          <div class="flex justify-between items-start mb-2">
+            <p class="font-semibold text-sm">Pedido #${p.numeroPedido}</p>
+            <p class="text-xs text-red-400">✕ Cancelado</p>
+          </div>
+          <p class="text-xs text-gray-400 mb-1">${p.direccion?.nombre || 'Sin nombre'}</p>
+          <p class="text-xs text-gray-500 mb-2">Creado: ${formatearFecha(p.fechaCreacion)}</p>
+          <p class="text-sm font-semibold mb-2">$${p.subtotal} MXN</p>
+          <button onclick='verDetallePedido(${JSON.stringify(p)})' class="w-full bg-blue-500 hover:bg-blue-600 transition text-white py-2 rounded-lg text-xs">
+            Ver detalles
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function cancelarPedido(pedidoId) {
+      if (!confirm('¿Cancelar este pedido? No se descontará stock ya que no se había confirmado.')) return;
+
+      try {
+        await db.collection('pedidos').doc(pedidoId).update({
+          estado: 'cancelado',
+          fechaCancelacion: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await cargarPedidos();
+      } catch (error) {
+        alert('Error al cancelar: ' + error.message);
+      }
+    }
+
+    // ===== MODAL DE DETALLES =====
+    function verDetallePedido(p) {
+      const d = p.direccion || {};
+      const contenido = document.getElementById('contenidoDetallePedido');
+
+      contenido.innerHTML = `
+        <div class="mb-4">
+          <p class="text-sm text-gray-400">Número de pedido</p>
+          <p class="text-lg font-bold">#${p.numeroPedido}</p>
+        </div>
+
+        <div class="mb-4">
+          <p class="text-sm text-gray-400 mb-1">Productos</p>
+          ${p.productos.map(prod => `
+            <p class="text-sm">• ${prod.nombre} (${prod.talla}) x${prod.cantidad} — $${prod.precio * prod.cantidad} MXN</p>
+          `).join('')}
+          <p class="text-sm font-semibold mt-2">Subtotal: $${p.subtotal} MXN</p>
+        </div>
+
+        <div class="mb-4 bg-zinc-800 rounded-lg p-3">
+          <p class="text-sm text-gray-400 mb-1">Dirección de envío</p>
+          <p class="text-sm font-medium">${d.nombre || '—'}</p>
+          <p class="text-sm text-gray-300">${d.telefono || '—'}</p>
+          <p class="text-sm text-gray-300">${d.calle || ''}, ${d.colonia || ''}</p>
+          <p class="text-sm text-gray-300">${d.ciudad || ''}, ${d.estado || ''}, CP ${d.cp || ''}</p>
+          ${d.referencias ? `<p class="text-xs text-gray-500 mt-1">Ref: ${d.referencias}</p>` : ''}
+        </div>
+
+        <div class="text-xs text-gray-500 space-y-1">
+          <p>Correo cliente: ${p.usuarioEmail || 'Invitado (sin sesión)'}</p>
+          <p>Creado: ${formatearFecha(p.fechaCreacion)}</p>
+          ${p.fechaConfirmacion ? `<p>Confirmado: ${formatearFecha(p.fechaConfirmacion)}</p>` : ''}
+          ${p.fechaCancelacion ? `<p>Cancelado: ${formatearFecha(p.fechaCancelacion)}</p>` : ''}
+        </div>
+      `;
+
+      document.getElementById('modalDetallePedido').classList.remove('hidden');
+      document.getElementById('modalDetallePedido').classList.add('flex');
+    }
+
+    function cerrarModalDetalle() {
+      document.getElementById('modalDetallePedido').classList.add('hidden');
+      document.getElementById('modalDetallePedido').classList.remove('flex');
     }
   </script>
 
