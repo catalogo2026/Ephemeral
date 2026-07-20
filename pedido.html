@@ -73,15 +73,27 @@
           <input id="dNombre" type="text" placeholder="Nombre completo" class="px-4 py-2 rounded-lg text-black">
           <input id="dTelefono" type="tel" placeholder="Teléfono" class="px-4 py-2 rounded-lg text-black">
         </div>
+
+        <input id="dCP" type="text" placeholder="Código Postal (5 dígitos)" maxlength="5" inputmode="numeric"
+               oninput="buscarCP('d')" class="w-full px-4 py-2 rounded-lg text-black mb-1">
+        <p id="dEstadoCP" class="hidden text-xs text-red-400 mb-2">Código postal no encontrado, verifícalo</p>
+        <p id="dCargandoCP" class="hidden text-xs text-gray-400 mb-2">Buscando...</p>
+
         <input id="dCalle" type="text" placeholder="Calle y número" class="w-full px-4 py-2 rounded-lg text-black mb-3">
+
+        <select id="dColonia" class="w-full px-4 py-2 rounded-lg text-black mb-2">
+          <option value="">Primero ingresa tu código postal</option>
+        </select>
+
+        <button type="button" onclick="activarModoManual('d')" class="text-xs text-gray-400 hover:underline mb-3 block">
+          ¿No encuentra tu colonia? Escribir dirección manualmente
+        </button>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          <input id="dColonia" type="text" placeholder="Colonia" class="px-4 py-2 rounded-lg text-black">
-          <input id="dCiudad" type="text" placeholder="Ciudad" class="px-4 py-2 rounded-lg text-black">
+          <input id="dCiudad" type="text" placeholder="Ciudad" readonly class="px-4 py-2 rounded-lg text-black bg-gray-200">
+          <input id="dEstado" type="text" placeholder="Estado" readonly class="px-4 py-2 rounded-lg text-black bg-gray-200">
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          <input id="dEstado" type="text" placeholder="Estado" class="px-4 py-2 rounded-lg text-black">
-          <input id="dCP" type="text" placeholder="Código Postal" class="px-4 py-2 rounded-lg text-black">
-        </div>
+
         <textarea id="dReferencias" placeholder="Referencias (opcional)" rows="2" class="w-full px-4 py-2 rounded-lg text-black"></textarea>
 
         <label id="labelGuardarDireccion" class="hidden flex items-center gap-2 mt-3 text-sm text-gray-400">
@@ -119,6 +131,75 @@
   </main>
 
   <script>
+    // ===== AUTOCOMPLETAR CÓDIGO POSTAL (SEPOMEX) =====
+    async function buscarCP(prefijo) {
+      const cp = document.getElementById(`${prefijo}CP`).value.trim();
+      const colonia = document.getElementById(`${prefijo}Colonia`);
+      const ciudad = document.getElementById(`${prefijo}Ciudad`);
+      const estado = document.getElementById(`${prefijo}Estado`);
+      const errorCP = document.getElementById(`${prefijo}EstadoCP`);
+      const cargandoCP = document.getElementById(`${prefijo}CargandoCP`);
+
+      if (cp.length !== 5) {
+        colonia.innerHTML = '<option value="">Primero ingresa tu código postal</option>';
+        ciudad.value = '';
+        estado.value = '';
+        return;
+      }
+
+      errorCP.classList.add('hidden');
+      cargandoCP.classList.remove('hidden');
+      colonia.innerHTML = '<option value="">Cargando colonias...</option>';
+
+      try {
+        const response = await fetch(`https://api-sepomex.hckdrk.mx/query/info_cp/${cp}?type=simplified`);
+        const data = await response.json();
+
+        cargandoCP.classList.add('hidden');
+
+        if (data.error || !data.response) {
+          errorCP.classList.remove('hidden');
+          colonia.innerHTML = '<option value="">Código postal no válido</option>';
+          ciudad.value = '';
+          estado.value = '';
+          return;
+        }
+
+        ciudad.value = data.response.municipio || '';
+        estado.value = data.response.estado || '';
+
+        const colonias = Array.isArray(data.response.asentamiento) ? data.response.asentamiento : [data.response.asentamiento];
+        colonia.innerHTML = '<option value="">Selecciona tu colonia</option>' +
+          colonias.map(c => `<option value="${c}">${c}</option>`).join('');
+      } catch (error) {
+        cargandoCP.classList.add('hidden');
+        errorCP.classList.remove('hidden');
+        colonia.innerHTML = '<option value="">Error al buscar, intenta de nuevo</option>';
+        console.error(error);
+      }
+    }
+
+    // ===== MODO MANUAL (si la API de códigos postales falla) =====
+    function activarModoManual(prefijo) {
+      const colonia = document.getElementById(`${prefijo}Colonia`);
+      const ciudad = document.getElementById(`${prefijo}Ciudad`);
+      const estado = document.getElementById(`${prefijo}Estado`);
+
+      const valorColonia = colonia.value;
+      const inputColonia = document.createElement('input');
+      inputColonia.type = 'text';
+      inputColonia.id = colonia.id;
+      inputColonia.placeholder = 'Colonia';
+      inputColonia.value = valorColonia;
+      inputColonia.className = colonia.className.replace('mb-2', 'mb-3');
+      colonia.replaceWith(inputColonia);
+
+      ciudad.readOnly = false;
+      ciudad.classList.remove('bg-gray-200');
+      estado.readOnly = false;
+      estado.classList.remove('bg-gray-200');
+    }
+
     let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
     let usuarioActual = null;
     let direccionesGuardadas = [];
