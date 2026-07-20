@@ -65,7 +65,7 @@
       <h2 class="text-sm font-semibold text-gray-500 uppercase mb-4 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         Categorías
       </h2>
-      <ul class="space-y-2 hidden group-hover:block">
+      <ul id="listaCategorias" class="space-y-2 hidden group-hover:block">
         <li>
           <a href="index.html" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black whitespace-nowrap">
             ← Ver catálogo
@@ -78,11 +78,11 @@
           <span class="text-xl">👤</span>
           <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">Iniciar sesión</span>
         </button>
-        <div id="usuarioInfo" class="hidden items-center gap-2 px-1 py-2">
+        <div id="usuarioInfo" class="hidden items-center gap-2 px-1 py-2 cursor-pointer" onclick="window.location.href='index.html?cuenta=1'">
           <img id="fotoUsuario" class="w-8 h-8 rounded-full flex-shrink-0" src="">
           <div class="whitespace-nowrap overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <p id="nombreUsuario" class="text-xs font-medium text-black truncate"></p>
-            <button onclick="cerrarSesionUsuario()" class="text-xs text-gray-500 hover:underline">Salir</button>
+            <span class="text-xs text-gray-500 hover:underline">Mi cuenta</span>
           </div>
         </div>
       </div>
@@ -95,9 +95,10 @@
           <h2 class="text-sm font-semibold text-gray-400 uppercase">Menú</h2>
           <button onclick="toggleMenuMovil()" class="text-white text-xl">✕</button>
         </div>
-        <a href="index.html" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
+        <a href="index.html" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white mb-2">
           ← Ver catálogo
         </a>
+        <ul id="listaCategoriasMovil" class="space-y-2"></ul>
       </aside>
     </div>
 
@@ -202,6 +203,35 @@
 
     const params = new URLSearchParams(window.location.search);
     const productoId = params.get('id');
+
+    async function cargarCategorias() {
+      try {
+        const snapshot = await db.collection('productos').get();
+        const productos = snapshot.docs.map(doc => doc.data());
+        const categorias = [...new Set(productos.map(p => p.categoria))];
+
+        const listaDesktop = document.getElementById('listaCategorias');
+        const listaMovil = document.getElementById('listaCategoriasMovil');
+
+        categorias.forEach(cat => {
+          const nombreBonito = cat.charAt(0).toUpperCase() + cat.slice(1);
+          listaDesktop.innerHTML += `
+            <li>
+              <a href="index.html?categoria=${cat}" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black whitespace-nowrap">
+                ${nombreBonito}
+              </a>
+            </li>`;
+          listaMovil.innerHTML += `
+            <li>
+              <a href="index.html?categoria=${cat}" class="w-full block text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
+                ${nombreBonito}
+              </a>
+            </li>`;
+        });
+      } catch (error) {
+        console.error('Error al cargar categorías:', error);
+      }
+    }
 
     async function cargarProducto() {
       if (!productoId) { mostrarNoEncontrado(); return; }
@@ -496,7 +526,10 @@
 
     document.getElementById('btnMenuMovil').addEventListener('click', toggleMenuMovil);
 
-    window.addEventListener('DOMContentLoaded', cargarProducto);
+    window.addEventListener('DOMContentLoaded', () => {
+      cargarProducto();
+      cargarCategorias();
+    });
   </script>
 
 </body>

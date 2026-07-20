@@ -352,7 +352,24 @@
         const snapshot = await db.collection('productos').get();
         todosLosProductos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         generarCategorias();
-        renderizarProductos(todosLosProductos);
+
+        // Si llega con categoría desde la URL (ej: producto.html -> index.html?categoria=X)
+        const params = new URLSearchParams(window.location.search);
+        const categoriaURL = params.get('categoria');
+        if (categoriaURL) {
+          categoriaActiva = categoriaURL;
+          setTimeout(() => {
+            document.querySelectorAll('.categoria-btn').forEach(btn => {
+              if (btn.textContent.trim().toLowerCase() === categoriaURL.toLowerCase()) {
+                btn.classList.add('bg-gray-100');
+              } else {
+                btn.classList.remove('bg-gray-100');
+              }
+            });
+          }, 0);
+        }
+
+        renderizarProductos(categoriaURL ? todosLosProductos.filter(p => p.categoria === categoriaURL) : todosLosProductos);
         actualizarCarritoUI();
       } catch (error) {
         console.error('Error al cargar productos:', error);
@@ -459,18 +476,18 @@ event.target.classList.add('bg-gray-100');
       toggleCarrito();
     }
 
-    function quitarDelCarrito(id) {
-      carrito = carrito.filter(item => item.id !== id);
+    function quitarDelCarrito(clave) {
+      carrito = carrito.filter(item => (item.claveUnica || item.id) !== clave);
       guardarCarrito();
       actualizarCarritoUI();
     }
 
-    function cambiarCantidad(id, delta) {
-      const item = carrito.find(i => i.id === id);
+    function cambiarCantidad(clave, delta) {
+      const item = carrito.find(i => (i.claveUnica || i.id) === clave);
       if (!item) return;
       item.cantidad += delta;
       if (item.cantidad <= 0) {
-        quitarDelCarrito(id);
+        quitarDelCarrito(clave);
       } else {
         guardarCarrito();
         actualizarCarritoUI();
@@ -579,6 +596,11 @@ event.target.classList.add('bg-gray-100');
         usuarioInfoMovil.classList.add('flex');
         fotoUsuarioMovil.src = user.photoURL || 'images/Logo.png';
         nombreUsuarioMovil.textContent = user.displayName || user.email;
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('cuenta') === '1') {
+          abrirMiCuenta();
+        }
       } else {
         btnLogin.classList.remove('hidden');
         usuarioInfo.classList.add('hidden');
