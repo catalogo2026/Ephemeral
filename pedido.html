@@ -288,9 +288,70 @@
     }
 
     // ===== CONFIRMAR PEDIDO =====
+    // ===== VALIDACIÓN DE STOCK EN TIEMPO REAL =====
+    async function validarStockDisponible() {
+      const problemas = [];
+
+      for (const item of carrito) {
+        try {
+          const doc = await db.collection('productos').doc(item.id).get();
+
+          if (!doc.exists) {
+            problemas.push(`"${item.nombre}" ya no está disponible.`);
+            continue;
+          }
+
+          const producto = doc.data();
+          let stockActual = 0;
+
+          if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+            const tallaEncontrada = producto.tallas.find(t => t.nombre === item.talla);
+            stockActual = tallaEncontrada ? tallaEncontrada.stock : 0;
+          } else {
+            stockActual = producto.stock || 0;
+          }
+
+          if (stockActual < item.cantidad) {
+            if (stockActual === 0) {
+              problemas.push(`"${item.nombre}" (talla ${item.talla}) ya no tiene stock disponible.`);
+            } else {
+              problemas.push(`"${item.nombre}" (talla ${item.talla}) solo tiene ${stockActual} disponible(s), tenías ${item.cantidad} en tu carrito.`);
+            }
+          }
+        } catch (error) {
+          console.error('Error validando stock:', error);
+          problemas.push(`No se pudo verificar el stock de "${item.nombre}".`);
+        }
+      }
+
+      return problemas;
+    }
+
     async function confirmarPedido() {
       const errorEl = document.getElementById('errorPedido');
       errorEl.classList.add('hidden');
+
+      // Validar stock disponible en tiempo real antes de continuar
+      const botonConfirmar = document.querySelector('[onclick="confirmarPedido()"]');
+      if (botonConfirmar) {
+        botonConfirmar.disabled = true;
+        botonConfirmar.textContent = 'Verificando disponibilidad...';
+      }
+
+      const problemasStock = await validarStockDisponible();
+
+      if (botonConfirmar) {
+        botonConfirmar.disabled = false;
+        botonConfirmar.textContent = 'Confirmar pedido';
+      }
+
+      if (problemasStock.length > 0) {
+        errorEl.innerHTML = '⚠️ ' + problemasStock.join('<br>⚠️ ') +
+          '<br><br>Por favor ajusta tu carrito y vuelve a intentar.';
+        errorEl.classList.remove('hidden');
+        window.scrollTo(0, 0);
+        return;
+      }
 
       let datosDireccion;
 

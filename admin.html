@@ -547,19 +547,47 @@
     }
 
     async function confirmarVenta(pedidoId) {
-      if (!confirm('¿Confirmar esta venta? Se descontará el stock correspondiente.')) return;
-
       const pedido = pedidosPendientes.find(p => p.id === pedidoId);
       if (!pedido) return;
+
+      // Verificar stock actual antes de confirmar, para avisar si ya no alcanza
+      const advertencias = [];
+      const datosProductos = {};
+
+      for (const item of pedido.productos) {
+        const productoRef = db.collection('productos').doc(item.id);
+        const productoDoc = await productoRef.get();
+        if (!productoDoc.exists) {
+          advertencias.push(`"${item.nombre}" ya no existe en el catálogo.`);
+          continue;
+        }
+        const productoData = productoDoc.data();
+        datosProductos[item.id] = productoData;
+
+        if (productoData.tallas && productoData.tallas.length > 0 && typeof productoData.tallas[0] === 'object') {
+          const talla = productoData.tallas.find(t => t.nombre === item.talla);
+          const stockActual = talla ? talla.stock : 0;
+          if (stockActual < item.cantidad) {
+            advertencias.push(`"${item.nombre}" (${item.talla}): stock actual ${stockActual}, este pedido pide ${item.cantidad}.`);
+          }
+        }
+      }
+
+      let mensaje = '¿Confirmar esta venta? Se descontará el stock correspondiente.';
+      if (advertencias.length > 0) {
+        mensaje = '⚠️ ATENCIÓN, posible stock insuficiente:\n\n' + advertencias.join('\n') +
+          '\n\n¿Confirmar de todas formas? (el stock quedará en 0, no en negativo)';
+      }
+
+      if (!confirm(mensaje)) return;
 
       try {
         // Descontar stock por cada producto/talla del pedido
         for (const item of pedido.productos) {
           const productoRef = db.collection('productos').doc(item.id);
-          const productoDoc = await productoRef.get();
-          if (!productoDoc.exists) continue;
+          const productoData = datosProductos[item.id];
+          if (!productoData) continue;
 
-          const productoData = productoDoc.data();
           if (productoData.tallas && productoData.tallas.length > 0 && typeof productoData.tallas[0] === 'object') {
             const nuevasTallas = productoData.tallas.map(t => {
               if (t.nombre === item.talla) {
