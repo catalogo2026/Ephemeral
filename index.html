@@ -249,6 +249,12 @@
         </div>
       </div>
 
+      <div class="mb-5">
+        <label class="block text-sm text-gray-400 mb-2">Mis pedidos</label>
+        <div id="listaMisPedidos" class="space-y-2"></div>
+        <p id="sinMisPedidos" class="hidden text-xs text-gray-500 py-3">Aún no has hecho ningún pedido.</p>
+      </div>
+
       <button onclick="cerrarSesionUsuario()" class="w-full bg-red-500 hover:bg-red-600 transition text-white py-2 rounded-lg text-sm font-semibold">
         Cerrar sesión
       </button>
@@ -518,6 +524,7 @@ event.target.classList.add('bg-gray-100');
       document.getElementById('mensajeNombreGuardado').classList.add('hidden');
       cancelarFormDireccionCuenta();
       await cargarDireccionesCuenta();
+      await cargarMisPedidos();
     }
 
     function cerrarMiCuenta() {
@@ -640,6 +647,54 @@ event.target.classList.add('bg-gray-100');
         await cargarDireccionesCuenta();
       } catch (error) {
         alert('Error al eliminar: ' + error.message);
+      }
+    }
+
+    function formatearFechaPedido(timestamp) {
+      if (!timestamp) return '—';
+      const fecha = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
+      return fecha.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function etiquetaEstadoPedido(estado) {
+      if (estado === 'confirmado') return '<span class="text-green-400">✓ Confirmado</span>';
+      if (estado === 'cancelado') return '<span class="text-red-400">✕ Cancelado</span>';
+      return '<span class="text-yellow-400">⏳ Pendiente</span>';
+    }
+
+    async function cargarMisPedidos() {
+      const contenedor = document.getElementById('listaMisPedidos');
+      const sinPedidos = document.getElementById('sinMisPedidos');
+
+      try {
+        const snapshot = await db.collection('pedidos').where('usuarioId', '==', usuarioActual.uid).get();
+        let pedidos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        pedidos.sort((a, b) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0));
+
+        if (pedidos.length === 0) {
+          contenedor.innerHTML = '';
+          sinPedidos.classList.remove('hidden');
+          return;
+        }
+        sinPedidos.classList.add('hidden');
+
+        contenedor.innerHTML = pedidos.map(p => `
+          <div class="bg-zinc-800 rounded-lg p-3 text-sm">
+            <div class="flex justify-between items-start mb-1">
+              <p class="font-medium">Pedido #${p.numeroPedido}</p>
+              <p class="text-xs">${etiquetaEstadoPedido(p.estado)}</p>
+            </div>
+            <p class="text-xs text-gray-400 mb-1">${formatearFechaPedido(p.fechaCreacion)}</p>
+            <div class="text-xs text-gray-300">
+              ${p.productos.map(prod => `<p>• ${prod.nombre} (${prod.talla}) x${prod.cantidad}</p>`).join('')}
+            </div>
+            <p class="text-xs font-semibold mt-1">Subtotal: $${p.subtotal} MXN</p>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error al cargar mis pedidos:', error);
+        contenedor.innerHTML = '';
+        sinPedidos.classList.remove('hidden');
       }
     }
 
