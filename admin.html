@@ -14,6 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAdpDQZgSZgIue7NY0FZ_acUgy0BYnahOc",
@@ -165,7 +166,35 @@
         <button onclick="cerrarModalDetalle()" class="text-2xl">✕</button>
       </div>
       <div id="contenidoDetallePedido"></div>
+      <button onclick="descargarReciboImagen()" class="w-full mt-4 bg-green-500 hover:bg-green-600 transition text-white py-2 rounded-lg text-sm font-semibold">
+        📥 Descargar imagen para el cliente
+      </button>
     </div>
+  </div>
+
+  <!-- PLANTILLA DE RECIBO (oculta, se convierte a imagen) -->
+  <div id="reciboParaImagen" style="position: fixed; top: -9999px; left: -9999px; width: 380px; background: #ffffff; font-family: 'Inter', sans-serif; padding: 28px; color: #111;">
+    <div style="text-align: center; margin-bottom: 18px;">
+      <p style="font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0;">EPHEMERAL</p>
+      <p style="font-size: 11px; color: #777; margin: 2px 0 0;">Calidad • Estilo • Exclusividad</p>
+    </div>
+    <div style="border-top: 2px solid #22c55e; padding-top: 14px; text-align: center; margin-bottom: 16px;">
+      <p style="font-size: 12px; color: #666; margin: 0;">Pedido confirmado</p>
+      <p id="reciboNumero" style="font-size: 22px; font-weight: 700; color: #16a34a; margin: 4px 0;"></p>
+    </div>
+    <div id="reciboProductos" style="font-size: 13px; margin-bottom: 14px;"></div>
+    <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 700;">
+        <span>Total</span>
+        <span id="reciboTotal"></span>
+      </div>
+    </div>
+    <div style="background: #f4f4f4; border-radius: 10px; padding: 12px; font-size: 12px; margin-bottom: 14px;">
+      <p style="font-weight: 600; margin: 0 0 4px;">Enviado a:</p>
+      <p id="reciboNombre" style="margin: 0;"></p>
+      <p id="reciboDireccion" style="margin: 2px 0 0; color: #555;"></p>
+    </div>
+    <p style="text-align: center; font-size: 11px; color: #999; margin: 0;">¡Gracias por tu compra!</p>
   </div>
 
   <script>
@@ -690,7 +719,10 @@
     }
 
     // ===== MODAL DE DETALLES =====
+    let pedidoActualDetalle = null;
+
     function verDetallePedido(p) {
+      pedidoActualDetalle = p;
       const d = p.direccion || {};
       const contenido = document.getElementById('contenidoDetallePedido');
 
@@ -732,6 +764,42 @@
     function cerrarModalDetalle() {
       document.getElementById('modalDetallePedido').classList.add('hidden');
       document.getElementById('modalDetallePedido').classList.remove('flex');
+    }
+
+    async function descargarReciboImagen() {
+      if (!pedidoActualDetalle) return;
+      const p = pedidoActualDetalle;
+      const d = p.direccion || {};
+
+      document.getElementById('reciboNumero').textContent = `#${p.numeroPedido}`;
+      document.getElementById('reciboProductos').innerHTML = p.productos.map(prod => `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span>${prod.nombre} (${prod.talla}) x${prod.cantidad}</span>
+          <span>$${prod.precio * prod.cantidad}</span>
+        </div>
+      `).join('');
+      document.getElementById('reciboTotal').textContent = `$${p.subtotal} MXN`;
+      document.getElementById('reciboNombre').textContent = d.nombre || '';
+      document.getElementById('reciboDireccion').textContent =
+        `${d.calle || ''}, ${d.colonia || ''}, ${d.ciudad || ''}, ${d.estado || ''}, CP ${d.cp || ''}`;
+
+      const elemento = document.getElementById('reciboParaImagen');
+      elemento.style.top = '0';
+      elemento.style.left = '0';
+      elemento.style.zIndex = '-1';
+
+      try {
+        const canvas = await html2canvas(elemento, { scale: 2, backgroundColor: '#ffffff' });
+        const link = document.createElement('a');
+        link.download = `pedido-${p.numeroPedido}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (error) {
+        alert('Error al generar la imagen: ' + error.message);
+      } finally {
+        elemento.style.top = '-9999px';
+        elemento.style.left = '-9999px';
+      }
     }
   </script>
 
