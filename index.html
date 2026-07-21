@@ -439,14 +439,18 @@
 
       let filtrados = todosLosProductos;
 
-      if (categoriaActiva === 'favoritos') {
-        filtrados = filtrados.filter(p => favoritosUsuario.includes(p.id));
-      } else if (categoriaActiva !== 'todos') {
-        filtrados = filtrados.filter(p => p.categoria === categoriaActiva);
-      }
-
       if (textoBusqueda) {
+        // Si hay texto de búsqueda, se busca en TODOS los productos, ignorando la categoría activa
         filtrados = filtrados.filter(p => p.nombre.toLowerCase().includes(textoBusqueda));
+        marcarCategoriaActiva('todos');
+      } else {
+        // Sin búsqueda, se respeta la categoría (o favoritos) que esté activa
+        if (categoriaActiva === 'favoritos') {
+          filtrados = filtrados.filter(p => favoritosUsuario.includes(p.id));
+        } else if (categoriaActiva !== 'todos') {
+          filtrados = filtrados.filter(p => p.categoria === categoriaActiva);
+        }
+        marcarCategoriaActiva(categoriaActiva);
       }
 
       renderizarProductos(filtrados);
