@@ -89,8 +89,8 @@
     </aside>
 
     <!-- Sidebar móvil -->
-    <div id="sidebarMovil" class="hidden fixed inset-0 bg-black/70 z-50 md:hidden">
-      <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto flex flex-col">
+    <div id="sidebarMovil" class="hidden fixed inset-0 bg-black/70 z-50 md:hidden" onclick="toggleMenuMovil()">
+      <aside class="w-64 bg-zinc-900 h-full p-4 overflow-y-auto flex flex-col" onclick="event.stopPropagation()">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-sm font-semibold text-gray-400 uppercase">Menú</h2>
           <button onclick="toggleMenuMovil()" class="text-white text-xl">✕</button>
