@@ -153,8 +153,8 @@
   </div>
 
   <!-- CARRITO LATERAL -->
-  <div id="carritoOverlay" class="hidden fixed inset-0 bg-black/70 z-50">
-    <div class="absolute right-0 top-0 w-full sm:w-96 h-full bg-zinc-900 p-6 overflow-y-auto">
+  <div id="carritoOverlay" class="hidden fixed inset-0 bg-black/70 z-50" onclick="toggleCarrito()">
+    <div class="absolute right-0 top-0 w-full sm:w-96 h-full bg-zinc-900 p-6 overflow-y-auto" onclick="event.stopPropagation()">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-bold">Tu Carrito</h2>
         <button onclick="toggleCarrito()" class="text-2xl">✕</button>
@@ -486,6 +486,8 @@
 
     function agregarAlCarritoRapido(producto) {
       let talla = 'Única';
+      let stockDisponible = producto.stock || 0;
+
       if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
         const tallaConStock = producto.tallas.find(t => t.stock > 0);
         if (!tallaConStock) {
@@ -493,12 +495,17 @@
           return;
         }
         talla = tallaConStock.nombre;
+        stockDisponible = tallaConStock.stock;
       }
 
       const claveUnica = `${producto.id}-${talla}`;
       const existente = carrito.find(item => item.claveUnica === claveUnica);
 
       if (existente) {
+        if (existente.cantidad >= stockDisponible) {
+          alert(`Ya tienes el máximo disponible (${stockDisponible}) de "${producto.nombre}" (talla ${talla}) en tu carrito.`);
+          return;
+        }
         existente.cantidad += 1;
       } else {
         carrito.push({
@@ -599,9 +606,28 @@
       actualizarCarritoUI();
     }
 
+    function obtenerStockLocal(productoId, talla) {
+      const producto = todosLosProductos.find(p => p.id === productoId);
+      if (!producto) return null;
+      if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+        const t = producto.tallas.find(t => t.nombre === talla);
+        return t ? t.stock : 0;
+      }
+      return producto.stock || 0;
+    }
+
     function cambiarCantidad(clave, delta) {
       const item = carrito.find(i => (i.claveUnica || i.id) === clave);
       if (!item) return;
+
+      if (delta > 0) {
+        const stock = obtenerStockLocal(item.id, item.talla);
+        if (stock !== null && item.cantidad >= stock) {
+          alert(`No hay más stock disponible de "${item.nombre}" (talla ${item.talla}). Stock: ${stock}.`);
+          return;
+        }
+      }
+
       item.cantidad += delta;
       if (item.cantidad <= 0) {
         quitarDelCarrito(clave);
