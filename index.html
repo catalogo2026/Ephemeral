@@ -91,8 +91,13 @@
   </h2>
   <ul id="listaCategorias" class="space-y-2 hidden group-hover:block">
     <li>
-      <button onclick="filtrarCategoria('todos')" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium bg-gray-100 text-black whitespace-nowrap">
+      <button onclick="filtrarCategoria('todos')" data-cat="todos" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium bg-gray-100 text-black whitespace-nowrap">
         Todos
+      </button>
+    </li>
+    <li id="liFavoritosDesktop" style="display: none;">
+      <button onclick="mostrarFavoritos()" data-cat="favoritos" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black whitespace-nowrap">
+        ❤️ Favoritos
       </button>
     </li>
   </ul>
@@ -241,8 +246,8 @@
           <option value="">Primero ingresa tu código postal</option>
         </select>
 
-        <button type="button" onclick="activarModoManual('c')" class="text-xs text-gray-400 hover:underline mb-2 block">
-          ¿No encuentra tu colonia? Escribir manualmente
+        <button type="button" onclick="activarModoManual('c')" class="text-sm text-yellow-400 underline font-semibold hover:text-yellow-300 mb-2 block">
+          ¿No te funciona? Toca aquí para escribir manualmente
         </button>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
@@ -358,15 +363,7 @@
         const categoriaURL = params.get('categoria');
         if (categoriaURL) {
           categoriaActiva = categoriaURL;
-          setTimeout(() => {
-            document.querySelectorAll('.categoria-btn').forEach(btn => {
-              if (btn.textContent.trim().toLowerCase() === categoriaURL.toLowerCase()) {
-                btn.classList.add('bg-gray-100');
-              } else {
-                btn.classList.remove('bg-gray-100');
-              }
-            });
-          }, 0);
+          marcarCategoriaActiva(categoriaURL);
         }
 
         renderizarProductos(categoriaURL ? todosLosProductos.filter(p => p.categoria === categoriaURL) : todosLosProductos);
@@ -381,33 +378,47 @@
       const listaDesktop = document.getElementById('listaCategorias');
       const listaMovil = document.getElementById('listaCategoriasMovil');
 
-      let htmlMovil = `<li><button onclick="filtrarCategoria('todos'); toggleMenuMovil()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">Todos</button></li>`;
+      let htmlMovil = `<li><button onclick="filtrarCategoria('todos'); toggleMenuMovil()" data-cat="todos" class="categoria-btn-movil w-full text-left px-3 py-2 rounded-lg bg-transparent hover:bg-zinc-800 transition text-sm font-medium text-white">Todos</button></li>
+        <li id="liFavoritosMovil" style="display: none;"><button onclick="mostrarFavoritos(); toggleMenuMovil()" data-cat="favoritos" class="categoria-btn-movil w-full text-left px-3 py-2 rounded-lg bg-transparent hover:bg-zinc-800 transition text-sm font-medium text-white">❤️ Favoritos</button></li>`;
 
       categorias.forEach(cat => {
         const nombreBonito = cat.charAt(0).toUpperCase() + cat.slice(1);
         listaDesktop.innerHTML += `
           <li>
-<button onclick="filtrarCategoria('${cat}')" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black">
-                ${nombreBonito}
+            <button onclick="filtrarCategoria('${cat}')" data-cat="${cat}" class="categoria-btn w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition text-sm font-medium text-black">
+              ${nombreBonito}
             </button>
           </li>`;
         htmlMovil += `
           <li>
-            <button onclick="filtrarCategoria('${cat}'); toggleMenuMovil()" class="w-full text-left px-3 py-2 rounded-lg hover:bg-zinc-800 transition text-sm font-medium text-white">
+            <button onclick="filtrarCategoria('${cat}'); toggleMenuMovil()" data-cat="${cat}" class="categoria-btn-movil w-full text-left px-3 py-2 rounded-lg bg-transparent hover:bg-zinc-800 transition text-sm font-medium text-white">
               ${nombreBonito}
             </button>
           </li>`;
       });
 
       listaMovil.innerHTML = htmlMovil;
+      actualizarVisibilidadFavoritos();
+    }
+
+    function marcarCategoriaActiva(categoria) {
+      document.querySelectorAll('.categoria-btn').forEach(btn => {
+        btn.classList.remove('bg-gray-100');
+        if (btn.dataset.cat === categoria) btn.classList.add('bg-gray-100');
+      });
+      document.querySelectorAll('.categoria-btn-movil').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-black');
+        btn.classList.add('bg-transparent', 'text-white');
+        if (btn.dataset.cat === categoria) {
+          btn.classList.remove('bg-transparent', 'text-white');
+          btn.classList.add('bg-white', 'text-black');
+        }
+      });
     }
 
     function filtrarCategoria(categoria) {
       categoriaActiva = categoria;
-
-      document.querySelectorAll('.categoria-btn').forEach(btn => btn.classList.remove('bg-gray-100'));
-event.target.classList.add('bg-gray-100');
-
+      marcarCategoriaActiva(categoria);
       filtrarProductos();
     }
 
@@ -417,7 +428,9 @@ event.target.classList.add('bg-gray-100');
 
       let filtrados = todosLosProductos;
 
-      if (categoriaActiva !== 'todos') {
+      if (categoriaActiva === 'favoritos') {
+        filtrados = filtrados.filter(p => favoritosUsuario.includes(p.id));
+      } else if (categoriaActiva !== 'todos') {
         filtrados = filtrados.filter(p => p.categoria === categoriaActiva);
       }
 
@@ -441,26 +454,130 @@ event.target.classList.add('bg-gray-100');
       sinResultados.classList.add('hidden');
 
       productos.forEach(producto => {
+        const esFavorito = favoritosUsuario.includes(producto.id);
         const productoHTML = `
-          <div class="bg-zinc-900 rounded-xl shadow-lg p-3 hover:scale-105 transition duration-300 cursor-pointer" onclick="window.location.href='producto.html?id=${producto.id}'">
-            <img src="${producto.imagenes[0]}"
-                 alt="${producto.nombre}"
-                 loading="lazy"
-                 class="rounded-lg mb-3 w-full h-[220px] object-cover">
+          <div class="bg-zinc-900 rounded-xl shadow-lg p-3 hover:scale-105 transition duration-300">
+            <div class="relative cursor-pointer" onclick="window.location.href='producto.html?id=${producto.id}'">
+              <img src="${producto.imagenes[0]}"
+                   alt="${producto.nombre}"
+                   loading="lazy"
+                   class="rounded-lg mb-3 w-full h-[220px] object-cover">
+              <button onclick="event.stopPropagation(); toggleFavorito('${producto.id}', this)"
+                      class="favorito-btn absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-lg">
+                ${esFavorito ? '❤️' : '🤍'}
+              </button>
+            </div>
 
-            <h3 class="text-base font-semibold truncate">${producto.nombre}</h3>
+            <h3 class="text-base font-semibold truncate cursor-pointer" onclick="window.location.href='producto.html?id=${producto.id}'">${producto.nombre}</h3>
             <p class="text-gray-400 text-sm mb-2">$${producto.precio} MXN</p>
 
-            <button class="w-full bg-green-500 hover:bg-green-600 transition text-white px-4 py-2 rounded-lg text-sm font-semibold">
-              Compra ya
-            </button>
+            <div class="flex gap-2">
+              <button onclick='agregarAlCarritoRapido(${JSON.stringify(producto)})' class="flex-1 bg-zinc-700 hover:bg-zinc-600 transition text-white px-2 py-2 rounded-lg text-xs font-semibold">
+                Añadir
+              </button>
+              <button onclick="window.location.href='producto.html?id=${producto.id}'" class="flex-1 bg-green-500 hover:bg-green-600 transition text-white px-2 py-2 rounded-lg text-xs font-semibold">
+                Compra ya
+              </button>
+            </div>
           </div>`;
         container.innerHTML += productoHTML;
       });
     }
 
-    function cambiarImagen(id, nuevaSrc) {
-      document.getElementById(id).src = nuevaSrc;
+    function agregarAlCarritoRapido(producto) {
+      let talla = 'Única';
+      if (producto.tallas && producto.tallas.length > 0 && typeof producto.tallas[0] === 'object') {
+        const tallaConStock = producto.tallas.find(t => t.stock > 0);
+        if (!tallaConStock) {
+          alert('Este producto no tiene stock disponible en ninguna talla.');
+          return;
+        }
+        talla = tallaConStock.nombre;
+      }
+
+      const claveUnica = `${producto.id}-${talla}`;
+      const existente = carrito.find(item => item.claveUnica === claveUnica);
+
+      if (existente) {
+        existente.cantidad += 1;
+      } else {
+        carrito.push({
+          id: producto.id,
+          nombre: producto.nombre,
+          precio: producto.precio,
+          imagenes: producto.imagenes,
+          talla: talla,
+          cantidad: 1,
+          claveUnica
+        });
+      }
+      guardarCarrito();
+      actualizarCarritoUI();
+      toggleCarrito();
+    }
+
+    // ===== FAVORITOS =====
+    let favoritosUsuario = [];
+
+    async function cargarFavoritos() {
+      if (!usuarioActual) {
+        favoritosUsuario = [];
+        return;
+      }
+      try {
+        const snapshot = await db.collection('usuarios').doc(usuarioActual.uid).collection('favoritos').get();
+        favoritosUsuario = snapshot.docs.map(doc => doc.id);
+      } catch (error) {
+        console.error('Error al cargar favoritos:', error);
+        favoritosUsuario = [];
+      }
+    }
+
+    async function toggleFavorito(productoId, btn) {
+      if (!usuarioActual) {
+        if (confirm('Necesitas iniciar sesión para guardar favoritos. ¿Iniciar sesión ahora?')) {
+          iniciarSesionGoogle();
+        }
+        return;
+      }
+
+      const ref = db.collection('usuarios').doc(usuarioActual.uid).collection('favoritos').doc(productoId);
+      const yaEsFavorito = favoritosUsuario.includes(productoId);
+
+      try {
+        if (yaEsFavorito) {
+          await ref.delete();
+          favoritosUsuario = favoritosUsuario.filter(id => id !== productoId);
+          btn.textContent = '🤍';
+        } else {
+          await ref.set({ fecha: firebase.firestore.FieldValue.serverTimestamp() });
+          favoritosUsuario.push(productoId);
+          btn.textContent = '❤️';
+        }
+        if (categoriaActiva === 'favoritos') {
+          filtrarProductos();
+        }
+      } catch (error) {
+        alert('Error al actualizar favoritos: ' + error.message);
+      }
+    }
+
+    function actualizarVisibilidadFavoritos() {
+      const liDesktop = document.getElementById('liFavoritosDesktop');
+      const liMovil = document.getElementById('liFavoritosMovil');
+      const visible = usuarioActual ? '' : 'none';
+      if (liDesktop) liDesktop.style.display = visible;
+      if (liMovil) liMovil.style.display = visible;
+    }
+
+    function mostrarFavoritos() {
+      if (!usuarioActual) {
+        alert('Inicia sesión para ver tus favoritos.');
+        return;
+      }
+      categoriaActiva = 'favoritos';
+      marcarCategoriaActiva('favoritos');
+      filtrarProductos();
     }
 
     // ===== CARRITO =====
@@ -549,6 +666,7 @@ event.target.classList.add('bg-gray-100');
 
     function irInicio() {
       categoriaActiva = 'todos';
+      marcarCategoriaActiva('todos');
       document.getElementById('inputBuscador').value = '';
       document.getElementById('inputBuscadorMovil').value = '';
       renderizarProductos(todosLosProductos);
@@ -609,7 +727,18 @@ event.target.classList.add('bg-gray-100');
         btnLoginMovil.classList.remove('hidden');
         usuarioInfoMovil.classList.add('hidden');
         usuarioInfoMovil.classList.remove('flex');
+
+        // Si estaba viendo favoritos y cierra sesión, regresa a "todos"
+        if (categoriaActiva === 'favoritos') {
+          categoriaActiva = 'todos';
+          marcarCategoriaActiva('todos');
+        }
       }
+
+      actualizarVisibilidadFavoritos();
+      cargarFavoritos().then(() => {
+        if (todosLosProductos.length > 0) filtrarProductos();
+      });
     });
 
     document.getElementById('btnMenuMovil').addEventListener('click', toggleMenuMovil);

@@ -113,6 +113,11 @@
           <div id="zoomContainer" class="zoom-container bg-zinc-900 rounded-2xl mb-4">
             <img id="imgPrincipal" src="" alt="" class="w-full h-[400px] md:h-[500px] object-cover rounded-2xl select-none">
 
+            <button id="btnFavoritoProducto" onclick="event.stopPropagation(); toggleFavoritoProducto()"
+                    class="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-xl z-10">
+              🤍
+            </button>
+
             <button onclick="imagenAnterior(event)" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 transition w-9 h-9 rounded-full flex items-center justify-center text-xl">
               ‹
             </button>
@@ -196,6 +201,7 @@
   <script>
     const TALLAS_DEFAULT = ["Chica", "Mediana", "Grande", "Extra Grande"];
     let producto = null;
+    let usuarioActual = null;
     let tallaSeleccionada = null;
     let cantidadSeleccionada = 1;
     let carrito = JSON.parse(sessionStorage.getItem('carrito')) || [];
@@ -241,6 +247,7 @@
         producto = { id: doc.id, ...doc.data() };
         renderizarProducto();
         actualizarCarritoUI();
+        actualizarBotonFavorito();
       } catch (error) {
         console.error(error);
         mostrarNoEncontrado();
@@ -497,6 +504,8 @@
     }
 
     auth.onAuthStateChanged(user => {
+      usuarioActual = user;
+
       const linkAdmin = document.getElementById('linkAdmin');
       if (user && user.email === 'ephemeralpagweb@gmail.com') {
         linkAdmin.classList.remove('hidden');
@@ -518,7 +527,58 @@
         usuarioInfo.classList.add('hidden');
         usuarioInfo.classList.remove('flex');
       }
+
+      cargarFavoritosProducto().then(() => actualizarBotonFavorito());
     });
+
+    // ===== FAVORITOS =====
+    let favoritosUsuario = [];
+
+    async function cargarFavoritosProducto() {
+      if (!usuarioActual) {
+        favoritosUsuario = [];
+        return;
+      }
+      try {
+        const snapshot = await db.collection('usuarios').doc(usuarioActual.uid).collection('favoritos').get();
+        favoritosUsuario = snapshot.docs.map(doc => doc.id);
+      } catch (error) {
+        console.error('Error al cargar favoritos:', error);
+        favoritosUsuario = [];
+      }
+    }
+
+    function actualizarBotonFavorito() {
+      const btn = document.getElementById('btnFavoritoProducto');
+      if (!btn || !producto) return;
+      btn.textContent = favoritosUsuario.includes(producto.id) ? '❤️' : '🤍';
+    }
+
+    async function toggleFavoritoProducto() {
+      if (!usuarioActual) {
+        if (confirm('Necesitas iniciar sesión para guardar favoritos. ¿Iniciar sesión ahora?')) {
+          iniciarSesionGoogle();
+        }
+        return;
+      }
+      if (!producto) return;
+
+      const ref = db.collection('usuarios').doc(usuarioActual.uid).collection('favoritos').doc(producto.id);
+      const yaEsFavorito = favoritosUsuario.includes(producto.id);
+
+      try {
+        if (yaEsFavorito) {
+          await ref.delete();
+          favoritosUsuario = favoritosUsuario.filter(id => id !== producto.id);
+        } else {
+          await ref.set({ fecha: firebase.firestore.FieldValue.serverTimestamp() });
+          favoritosUsuario.push(producto.id);
+        }
+        actualizarBotonFavorito();
+      } catch (error) {
+        alert('Error al actualizar favoritos: ' + error.message);
+      }
+    }
 
     function toggleMenuMovil() {
       document.getElementById('sidebarMovil').classList.toggle('hidden');
