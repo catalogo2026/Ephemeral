@@ -76,7 +76,13 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <input id="fNombre" type="text" placeholder="Nombre del producto" class="px-4 py-2 rounded-lg text-black">
-          <input id="fCategoria" type="text" placeholder="Categoría (ej: sueteres)" class="px-4 py-2 rounded-lg text-black">
+          <div>
+            <select id="fCategoriaSelect" onchange="manejarCambioCategoria()" class="w-full px-4 py-2 rounded-lg text-black">
+              <option value="">Selecciona una categoría...</option>
+              <option value="__nueva__">+ Nueva categoría</option>
+            </select>
+            <input id="fCategoria" type="text" placeholder="Nombre de la nueva categoría" class="hidden w-full px-4 py-2 rounded-lg text-black mt-2">
+          </div>
           <input id="fPrecio" type="number" placeholder="Precio MXN" class="px-4 py-2 rounded-lg text-black">
         </div>
 
@@ -230,6 +236,39 @@
       }
     });
 
+    function poblarSelectCategorias() {
+      const select = document.getElementById('fCategoriaSelect');
+      const categorias = [...new Set(todosLosProductosAdmin.map(p => p.categoria))].sort();
+      const valorActual = select.value;
+
+      select.innerHTML = '<option value="">Selecciona una categoría...</option>' +
+        categorias.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('') +
+        '<option value="__nueva__">+ Nueva categoría</option>';
+
+      if (categorias.includes(valorActual)) select.value = valorActual;
+    }
+
+    function manejarCambioCategoria() {
+      const select = document.getElementById('fCategoriaSelect');
+      const input = document.getElementById('fCategoria');
+      if (select.value === '__nueva__') {
+        input.classList.remove('hidden');
+        input.value = '';
+        input.focus();
+      } else {
+        input.classList.add('hidden');
+        input.value = '';
+      }
+    }
+
+    function obtenerCategoriaFormulario() {
+      const select = document.getElementById('fCategoriaSelect');
+      if (select.value === '__nueva__') {
+        return document.getElementById('fCategoria').value.trim().toLowerCase();
+      }
+      return select.value.trim().toLowerCase();
+    }
+
     // ===== TALLAS DINÁMICAS =====
     function agregarFilaTalla(nombre = '', stock = '') {
       const contenedor = document.getElementById('contenedorTallas');
@@ -295,7 +334,7 @@
       const id = document.getElementById('productoId').value;
       const producto = {
         nombre: document.getElementById('fNombre').value,
-        categoria: document.getElementById('fCategoria').value.toLowerCase(),
+        categoria: obtenerCategoriaFormulario(),
         precio: Number(document.getElementById('fPrecio').value),
         tallas: obtenerTallasDelFormulario(),
         descripcion: document.getElementById('fDescripcion').value,
@@ -336,6 +375,7 @@
       const snapshot = await db.collection('productos').get();
       todosLosProductosAdmin = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       renderizarListaAdmin(todosLosProductosAdmin);
+      poblarSelectCategorias();
     }
 
     function renderizarListaAdmin(productos) {
@@ -372,7 +412,9 @@
       document.getElementById('formTitulo').textContent = 'Editar producto';
       document.getElementById('productoId').value = id;
       document.getElementById('fNombre').value = producto.nombre;
-      document.getElementById('fCategoria').value = producto.categoria;
+      document.getElementById('fCategoriaSelect').value = producto.categoria;
+      document.getElementById('fCategoria').classList.add('hidden');
+      document.getElementById('fCategoria').value = '';
       document.getElementById('fPrecio').value = producto.precio;
       document.getElementById('fDescripcion').value = producto.descripcion || '';
       document.getElementById('fImagenes').value = producto.imagenes.join(',');
@@ -402,6 +444,8 @@
       document.getElementById('formTitulo').textContent = 'Agregar producto nuevo';
       document.getElementById('productoId').value = '';
       document.getElementById('fNombre').value = '';
+      document.getElementById('fCategoriaSelect').value = '';
+      document.getElementById('fCategoria').classList.add('hidden');
       document.getElementById('fCategoria').value = '';
       document.getElementById('fPrecio').value = '';
       document.getElementById('fDescripcion').value = '';
