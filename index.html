@@ -66,11 +66,15 @@
 
       <!-- Buscador + Carrito -->
       <div class="flex items-center gap-3">
-        <input id="inputBuscador"
-               type="text"
-               placeholder="Buscar..."
-               class="hidden sm:block border border-gray-300 rounded-lg px-3 py-2 text-black text-sm w-32 md:w-56 focus:outline-none focus:ring-2 focus:ring-black"
-               oninput="filtrarProductos()">
+        <div class="relative hidden sm:block">
+          <input id="inputBuscador"
+                 type="text"
+                 placeholder="Buscar..."
+                 class="border border-gray-300 rounded-lg px-3 py-2 text-black text-sm w-32 md:w-56 focus:outline-none focus:ring-2 focus:ring-black"
+                 oninput="filtrarProductos()"
+                 onfocus="filtrarProductos()">
+          <div id="sugerenciasBuscador" class="hidden absolute top-full mt-1 left-0 w-72 bg-white rounded-lg shadow-xl max-h-80 overflow-y-auto z-50"></div>
+        </div>
 <a href="admin.html" id="linkAdmin" class="hidden text-black text-xl" title="Panel Admin">⚙️</a>
         <button onclick="toggleCarrito()" class="relative text-black text-2xl">
           🛒
@@ -81,12 +85,14 @@
     </div>
 
     <!-- Buscador móvil (debajo, solo pantallas chicas) -->
-    <div class="sm:hidden px-4 mt-3">
+    <div class="sm:hidden px-4 mt-3 relative">
       <input id="inputBuscadorMovil"
              type="text"
              placeholder="Buscar productos..."
              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-black text-sm focus:outline-none focus:ring-2 focus:ring-black"
-             oninput="filtrarProductos()">
+             oninput="filtrarProductos()"
+             onfocus="filtrarProductos()">
+      <div id="sugerenciasBuscadorMovil" class="hidden absolute top-full mt-1 left-4 right-4 bg-white rounded-lg shadow-xl max-h-72 overflow-y-auto z-50"></div>
     </div>
   </header>
 
@@ -429,20 +435,32 @@
 
     function filtrarCategoria(categoria) {
       categoriaActiva = categoria;
+      document.getElementById('inputBuscador').value = '';
+      document.getElementById('inputBuscadorMovil').value = '';
+      ocultarSugerencias();
       marcarCategoriaActiva(categoria);
       filtrarProductos();
     }
 
+    function normalizarTexto(str) {
+      return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // quita acentos
+    }
+
     function filtrarProductos() {
-      const textoBusqueda = (document.getElementById('inputBuscador').value ||
-                              document.getElementById('inputBuscadorMovil').value || '').toLowerCase();
+      const textoBusquedaCrudo = document.getElementById('inputBuscador').value ||
+                                  document.getElementById('inputBuscadorMovil').value || '';
+      const textoBusqueda = normalizarTexto(textoBusquedaCrudo);
 
       let filtrados = todosLosProductos;
 
       if (textoBusqueda) {
         // Si hay texto de búsqueda, se busca en TODOS los productos, ignorando la categoría activa
-        filtrados = filtrados.filter(p => p.nombre.toLowerCase().includes(textoBusqueda));
+        filtrados = filtrados.filter(p => normalizarTexto(p.nombre).includes(textoBusqueda));
         marcarCategoriaActiva('todos');
+        mostrarSugerencias(filtrados, textoBusqueda);
       } else {
         // Sin búsqueda, se respeta la categoría (o favoritos) que esté activa
         if (categoriaActiva === 'favoritos') {
@@ -451,9 +469,45 @@
           filtrados = filtrados.filter(p => p.categoria === categoriaActiva);
         }
         marcarCategoriaActiva(categoriaActiva);
+        ocultarSugerencias();
       }
 
       renderizarProductos(filtrados);
+    }
+
+    function mostrarSugerencias(filtrados, textoBusqueda) {
+      const resultados = filtrados.slice(0, 6);
+
+      [
+        { contenedorId: 'sugerenciasBuscador' },
+        { contenedorId: 'sugerenciasBuscadorMovil' }
+      ].forEach(({ contenedorId }) => {
+        const contenedor = document.getElementById(contenedorId);
+        if (!contenedor) return;
+
+        if (resultados.length === 0) {
+          contenedor.innerHTML = `<p class="text-sm text-gray-500 p-3">Sin resultados para "${textoBusqueda}"</p>`;
+        } else {
+          contenedor.innerHTML = resultados.map(p => `
+            <div onclick="window.location.href='producto.html?id=${p.id}'"
+                 class="flex items-center gap-3 p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0">
+              <img src="${p.imagenes[0]}" class="w-10 h-10 object-cover rounded">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-black truncate">${p.nombre}</p>
+                <p class="text-xs text-gray-500">$${p.precio} MXN</p>
+              </div>
+            </div>
+          `).join('');
+        }
+        contenedor.classList.remove('hidden');
+      });
+    }
+
+    function ocultarSugerencias() {
+      const d = document.getElementById('sugerenciasBuscador');
+      const m = document.getElementById('sugerenciasBuscadorMovil');
+      if (d) d.classList.add('hidden');
+      if (m) m.classList.add('hidden');
     }
 
     function renderizarProductos(productos) {
@@ -598,6 +652,9 @@
         return;
       }
       categoriaActiva = 'favoritos';
+      document.getElementById('inputBuscador').value = '';
+      document.getElementById('inputBuscadorMovil').value = '';
+      ocultarSugerencias();
       marcarCategoriaActiva('favoritos');
       filtrarProductos();
     }
@@ -710,6 +767,7 @@
       marcarCategoriaActiva('todos');
       document.getElementById('inputBuscador').value = '';
       document.getElementById('inputBuscadorMovil').value = '';
+      ocultarSugerencias();
       renderizarProductos(todosLosProductos);
     }
 
@@ -989,6 +1047,14 @@
         alert('Error al cancelar: ' + error.message);
       }
     }
+
+    document.addEventListener('click', (e) => {
+      const dentroDesktop = document.getElementById('inputBuscador')?.parentElement.contains(e.target);
+      const dentroMovil = document.getElementById('inputBuscadorMovil')?.parentElement.contains(e.target);
+      if (!dentroDesktop && !dentroMovil) {
+        ocultarSugerencias();
+      }
+    });
 
     window.addEventListener('DOMContentLoaded', cargarProductos);
   </script>
