@@ -53,18 +53,27 @@
   <!-- PANEL ADMIN -->
   <div id="panelAdmin" class="hidden">
 
-    <header class="bg-white text-black py-4 px-6 flex flex-wrap justify-between items-center gap-3 shadow-md">
-      <div class="flex items-center gap-4">
-        <a href="index.html" class="text-sm bg-zinc-200 hover:bg-zinc-300 transition px-3 py-2 rounded-lg whitespace-nowrap">
-          ← Ver catálogo
-        </a>
-        <h1 class="text-lg md:text-xl font-bold">Panel Admin - EPHEMERAL</h1>
+    <header class="bg-white text-black shadow-md sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+        <div class="flex items-center justify-between sm:justify-start gap-3">
+          <img src="images/LogoCompleto.png" alt="EPHEMERAL" class="h-10 object-contain">
+          <span class="text-sm font-semibold text-gray-500">Panel Admin</span>
+        </div>
+
+        <div class="flex items-center justify-between sm:justify-end gap-2">
+          <a href="index.html" class="text-sm bg-zinc-200 hover:bg-zinc-300 transition px-3 py-2 rounded-lg whitespace-nowrap">
+            ← Ver catálogo
+          </a>
+          <button onclick="togglePanelPedidos()" class="relative bg-zinc-800 text-white px-4 py-2 rounded-lg hover:bg-zinc-700 transition text-sm whitespace-nowrap">
+            📦 Pedidos
+            <span id="contadorPendientes" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+          </button>
+        </div>
+
       </div>
-      <button onclick="togglePanelPedidos()" class="relative bg-zinc-800 text-white px-4 py-2 rounded-lg hover:bg-zinc-700 transition text-sm">
-        📦 Pedidos
-        <span id="contadorPendientes" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
-      </button>
     </header>
+
 
     <div class="max-w-6xl mx-auto p-6">
 
@@ -173,7 +182,7 @@
       </div>
       <div id="contenidoDetallePedido"></div>
       <button onclick="descargarReciboImagen()" class="w-full mt-4 bg-green-500 hover:bg-green-600 transition text-white py-2 rounded-lg text-sm font-semibold">
-        📥 Descargar imagen para el cliente
+        📥 Descargar / Compartir recibo
       </button>
     </div>
   </div>
@@ -834,10 +843,48 @@
 
       try {
         const canvas = await html2canvas(elemento, { scale: 2, backgroundColor: '#ffffff' });
-        const link = document.createElement('a');
-        link.download = `pedido-${p.numeroPedido}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+
+        canvas.toBlob(async (blob) => {
+          const nombreArchivo = `pedido-${p.numeroPedido}.png`;
+          const archivo = new File([blob], nombreArchivo, { type: 'image/png' });
+
+          // iOS (Safari/Chrome) no soporta descarga forzada de archivos.
+          // Usamos la función nativa de "Compartir" cuando está disponible (también permite mandarlo directo por WhatsApp).
+          if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+            try {
+              await navigator.share({
+                files: [archivo],
+                title: `Pedido #${p.numeroPedido}`,
+                text: `Comprobante de tu pedido #${p.numeroPedido}`
+              });
+            } catch (errorShare) {
+              // El usuario canceló el compartir, no es un error real
+            }
+          } else {
+            const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            if (esIOS) {
+              // Respaldo en iOS: abre la imagen en una pestaña nueva para guardarla con "mantener presionado"
+              const url = URL.createObjectURL(blob);
+              const ventana = window.open();
+              if (ventana) {
+                ventana.document.write(`
+                  <body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+                    <img src="${url}" style="max-width:100%;height:auto;">
+                  </body>
+                `);
+              } else {
+                alert('Permite ventanas emergentes para ver la imagen, o mantén presionada la imagen del recibo para guardarla.');
+              }
+            } else {
+              // Desktop: descarga normal
+              const link = document.createElement('a');
+              link.download = nombreArchivo;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+            }
+          }
+        }, 'image/png');
       } catch (error) {
         alert('Error al generar la imagen: ' + error.message);
       } finally {
